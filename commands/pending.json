@@ -1,1 +1,1 @@
-{"commands":[{"id":"final-001","cmd":"echo 'IT WORKS' && date","timeout":30}]}
+{"commands":[{"id":"live-001","cmd":"echo 'COMMAND QUEUE IS LIVE' && uptime","timeout":30}]}
