@@ -1,1 +1,1 @@
-{"commands":[{"id":"verify-001","cmd":"echo 'POLLER WORKS' && date","timeout":30}]}
+{"commands":[{"id":"final-001","cmd":"echo 'IT WORKS' && date","timeout":30}]}
