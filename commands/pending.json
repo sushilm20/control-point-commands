@@ -1,1 +1,1 @@
-{"commands":[]}
+{"commands":[{"id":"test-001","cmd":"echo 'Hello from VM' && uptime","timeout":30}]}
