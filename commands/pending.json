@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-files","cmd":"sudo -u controlpoint bash -c 'rm -rf /tmp/cp-new && git clone -q https://github.com/Control-Point-FTC/control-point.git /tmp/cp-new 2>&1 | tail -2; cp /tmp/cp-new/ai-hybrid.ts /tmp/cp-new/ai.ts /tmp/cp-new/server.ts /opt/control-point/ && echo COPIED' && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point","timeout":180}]}
+{"commands": []}
