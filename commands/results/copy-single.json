@@ -1,0 +1,5 @@
+{
+  "id": "copy-single",
+  "cmd": "sudo cp -v /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js /opt/control-point/dist/assets/ 2>&1; echo \"exit: $?\"; sudo ls -lh /opt/control-point/dist/assets/index-* 2>&1",
+  "output": "'/opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js' -> '/opt/control-point/dist/assets/index-D1yhVjwK.js'\nexit: 0\nls: cannot access '/opt/control-point/dist/assets/index-*': No such file or directory\n"
+}
