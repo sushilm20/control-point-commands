@@ -1,0 +1,5 @@
+{
+  "id": "nginx-root",
+  "cmd": "sudo grep -r \"root\" /etc/nginx/sites-enabled/ 2>&1 | head -5; echo \"---\"; sudo nginx -T 2>&1 | grep -A2 \"server_name.*tryctrlpoint\" | head -10",
+  "output": "---\n    server_name tryctrlpoint.org _;\n\n    location /.well-known/acme-challenge/ { root /var/www/certbot; }\n--\n    server_name www.tryctrlpoint.org; # managed by Certbot\n\n\n--\n    server_name tryctrlpoint.org _;\n    return 404; # managed by Certbot\n"
+}
