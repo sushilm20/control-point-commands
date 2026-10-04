@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"check-index","cmd":"sudo cat /opt/control-point/dist/index.html 2>&1 | head -20; echo \"---\"; sudo ls -la /opt/control-point/dist/assets/ 2>&1 | head -10","timeout":30}]}
