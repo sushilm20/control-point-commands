@@ -1,0 +1,5 @@
+{
+  "id": "copy-rename",
+  "cmd": "sudo cp /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js /opt/control-point/dist/assets/test-index.js 2>&1; echo \"cp exit: $?\"; sudo ls -lh /opt/control-point/dist/assets/test-index.js 2>&1",
+  "output": "cp exit: 0\n-rw-r--r-- 1 root controlpoint 1.7M Oct  4 03:50 /opt/control-point/dist/assets/test-index.js\n"
+}
