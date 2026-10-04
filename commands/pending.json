@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-lang2","cmd":"cd /opt/bruno-commands/repo && git pull -q origin main 2>&1 | tail -1; sudo -u controlpoint bash -c 'rm -rf /opt/control-point/dist && cp -r /opt/bruno-commands/repo/deploy/dist /opt/control-point/dist && echo DEPLOYED' && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point","timeout":120}]}
+{"commands": []}
