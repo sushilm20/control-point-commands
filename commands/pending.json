@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"copy-rename","cmd":"sudo cp /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js /opt/control-point/dist/assets/test-index.js 2>&1; echo \"cp exit: $?\"; sudo ls -lh /opt/control-point/dist/assets/test-index.js 2>&1","timeout":30}]}
