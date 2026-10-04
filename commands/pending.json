@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"test-write","cmd":"echo \"test123\" | sudo tee /opt/control-point/dist/assets/test.txt > /dev/null && sudo cat /opt/control-point/dist/assets/test.txt 2>&1 && sudo rm /opt/control-point/dist/assets/test.txt","timeout":30}]}
