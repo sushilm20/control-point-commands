@@ -1,0 +1,5 @@
+{
+  "id": "deploy-i18n2",
+  "cmd": "cp -r /opt/bruno-commands/repo/deploy/dist/* /opt/control-point/dist/ && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point",
+  "output": "\nSTDERR: cp: target '/opt/control-point/dist/': Permission denied\n"
+}
