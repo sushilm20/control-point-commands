@@ -1,0 +1,5 @@
+{
+  "id": "app-structure",
+  "cmd": "ls /opt/control-point/ | head -20; echo \"---\"; ls -a /opt/control-point/ | grep -E \"^\\.git\" ; echo \"---\"; cat /opt/control-point/package.json 2>/dev/null | head -5",
+  "output": "---\n---\n\nSTDERR: ls: cannot open directory '/opt/control-point/': Permission denied\nls: cannot open directory '/opt/control-point/': Permission denied\n"
+}
