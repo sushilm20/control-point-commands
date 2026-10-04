@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"find-app","cmd":"ls -d /opt/*/ 2>/dev/null; systemctl show control-point -p WorkingDirectory 2>/dev/null; pwd","timeout":30}]}
