@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-bundle","cmd":"cd /opt/bruno-commands/repo && git pull -q origin main 2>&1 | tail -1; sudo -u controlpoint bash -c 'cp /opt/bruno-commands/repo/deploy/ai-hybrid.ts /opt/bruno-commands/repo/deploy/ai.ts /opt/bruno-commands/repo/deploy/server.ts /opt/control-point/ && echo COPIED' && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point","timeout":120}]}
+{"commands": []}
