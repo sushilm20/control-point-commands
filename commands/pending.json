@@ -1,1 +1,1 @@
-{"commands":[{"id":"check-hash","cmd":"sudo grep -o 'assets/index-[^\"]*\\.js' /opt/control-point/dist/index.html 2>&1; echo \"---\"; sudo ls /opt/control-point/dist/assets/index-*.js 2>&1","timeout":30}]}
+{"commands": []}
