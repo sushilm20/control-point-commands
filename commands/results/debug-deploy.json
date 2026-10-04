@@ -1,0 +1,5 @@
+{
+  "id": "debug-deploy",
+  "cmd": "ls -la /opt/bruno-commands/repo/deploy/ 2>&1 | head -10; echo \"---\"; sudo grep -c \"first name\" /opt/control-point/server.ts 2>&1; echo \"---\"; sudo ls -la /opt/control-point/*.ts 2>&1 | head -10",
+  "output": "total 492\ndrwxrwxr-x 3 ubuntu ubuntu   4096 Oct  4 03:24 .\ndrwxrwxr-x 5 ubuntu ubuntu   4096 Oct  4 02:41 ..\n-rw-rw-r-- 1 ubuntu ubuntu  45714 Oct  4 03:24 ai.ts\ndrwxrwxr-x 5 ubuntu ubuntu   4096 Oct  4 03:20 dist\n-rw-rw-r-- 1 ubuntu ubuntu 439085 Oct  4 03:24 server.ts\n---\n1\n---\nls: cannot access '/opt/control-point/*.ts': No such file or directory\n"
+}
