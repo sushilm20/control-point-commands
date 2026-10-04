@@ -1,1 +1,1 @@
-{"commands":[{"id":"copy-cat","cmd":"sudo sh -c 'cat /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js > /opt/control-point/dist/assets/index-D1yhVjwK.js' 2>&1; echo \"exit: $?\"; sudo ls -lh /opt/control-point/dist/assets/index-* 2>&1 | head -3","timeout":60}]}
+{"commands": []}
