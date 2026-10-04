@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-bruno-name","cmd":"cd /opt/control-point && git fetch -q origin main 2>/dev/null || echo 'no git'; sudo systemctl restart control-point && sleep 10 && systemctl is-active control-point","timeout":60}]}
+{"commands": []}
