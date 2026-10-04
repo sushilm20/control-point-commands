@@ -1,0 +1,5 @@
+{
+  "id": "app-struct2",
+  "cmd": "sudo -u controlpoint bash -c 'ls /opt/control-point/ | head -20; echo \"---GIT---\"; ls -a /opt/control-point/ | grep git; echo \"---PKG---\"; head -3 /opt/control-point/package.json'",
+  "output": "CODE_OF_CONDUCT.md\nLICENSE\nREADME.md\nai-hybrid.ts\nai.ts\nbin\ncode_repos\ndashboard.db\ndb.ts\ndeploy\ndist\ndocs\nemail-verify.ts\nfile.yaml\nindex.html\nmetadata.json\nmigrations\nnode_modules\npackage-lock.json\npackage.json\n---GIT---\n.gitattributes\n.gitignore\n---PKG---\n{\n  \"name\": \"control-point\",\n  \"private\": false,\n"
+}
