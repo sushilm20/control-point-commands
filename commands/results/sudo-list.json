@@ -1,0 +1,5 @@
+{
+  "id": "sudo-list",
+  "cmd": "sudo ls -la /opt/control-point/dist/assets/index-* 2>&1; echo \"---\"; sudo ls -ld /opt/control-point/dist /opt/control-point/dist/assets 2>&1",
+  "output": "ls: cannot access '/opt/control-point/dist/assets/index-*': No such file or directory\n---\ndrwxr-sr-x 5 controlpoint controlpoint 4096 Oct  4 02:44 /opt/control-point/dist\ndrwxr-sr-x 2 controlpoint controlpoint 4096 Oct  4 03:20 /opt/control-point/dist/assets\n"
+}
