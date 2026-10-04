@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"check-mount","cmd":"ls -ld /opt/control-point 2>&1; readlink /opt/control-point 2>&1; df /opt/control-point 2>&1 | tail -2; mount | grep control-point 2>&1","timeout":30}]}
