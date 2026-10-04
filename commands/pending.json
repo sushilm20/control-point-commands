@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"rename-file","cmd":"sudo mv /opt/control-point/dist/assets/test-index.js /opt/control-point/dist/assets/index-D1yhVjwK.js 2>&1; echo \"mv exit: $?\"; sudo ls -lh /opt/control-point/dist/assets/index-* 2>&1","timeout":30}]}
