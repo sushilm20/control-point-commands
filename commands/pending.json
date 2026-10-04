@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-i18n","cmd":"cd /opt/control-point && git -C /home/hatch/workspace/team-manager rev-parse HEAD > /dev/null 2>&1; rsync -av --delete /home/hatch/workspace/team-manager/dist/ /opt/control-point/dist/ 2>&1 | tail -2 || echo 'RSYNC_NEEDS_VM_PATH'","timeout":60}]}
+{"commands":[{"id":"deploy-i18n2","cmd":"cp -r /opt/bruno-commands/repo/deploy/dist/* /opt/control-point/dist/ && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point","timeout":60}]}
