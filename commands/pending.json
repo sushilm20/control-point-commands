@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"build-check","cmd":"sudo -u controlpoint bash -c 'grep -A5 \"\\\"scripts\\\"\" /opt/control-point/package.json | head -10; echo \"---\"; systemctl cat control-point 2>/dev/null | grep -E \"ExecStart|WorkingDirectory\" | head -5'","timeout":30}]}
