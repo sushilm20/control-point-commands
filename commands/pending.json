@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"size-test","cmd":"sudo dd if=/dev/zero of=/opt/control-point/dist/assets/bigtest.bin bs=1M count=2 2>&1 | tail -2; sudo ls -lh /opt/control-point/dist/assets/bigtest.bin 2>&1; sudo rm /opt/control-point/dist/assets/bigtest.bin 2>&1","timeout":30}]}
