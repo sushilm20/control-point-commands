@@ -1,0 +1,5 @@
+{
+  "id": "final-test",
+  "cmd": "echo 'POLLER IS LIVE' && date && uptime",
+  "output": "POLLER IS LIVE\nSun Oct  4 01:10:23 UTC 2026\n 01:10:23 up 20:23,  1 user,  load average: 0.00, 0.00, 0.00\n"
+}

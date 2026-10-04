@@ -1,1 +1,1 @@
-{"commands":[{"id":"final-test","cmd":"echo 'POLLER IS LIVE' && date && uptime","timeout":30}]}
+{"commands": []}
