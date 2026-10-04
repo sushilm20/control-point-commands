@@ -1,1 +1,1 @@
-{"commands":[{"id":"disk-space","cmd":"df -h /opt/control-point 2>&1 | tail -2; echo \"---\"; ls -lh /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js 2>&1; echo \"---\"; sudo du -sh /opt/control-point/dist 2>&1","timeout":30}]}
+{"commands": []}

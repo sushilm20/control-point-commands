@@ -1,0 +1,5 @@
+{
+  "id": "disk-space",
+  "cmd": "df -h /opt/control-point 2>&1 | tail -2; echo \"---\"; ls -lh /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js 2>&1; echo \"---\"; sudo du -sh /opt/control-point/dist 2>&1",
+  "output": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda1        45G  4.3G   40G  10% /\n---\n-rw-rw-r-- 1 ubuntu ubuntu 1.7M Oct  4 03:20 /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js\n---\n22M\t/opt/control-point/dist\n"
+}
