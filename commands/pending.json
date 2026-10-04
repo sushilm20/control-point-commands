@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"verify-deploy","cmd":"grep -c \"Address them by their first name\" /opt/control-point/server.ts 2>/dev/null; echo \"---\"; ls -la /opt/control-point/dist/index.html; echo \"---\"; systemctl is-active control-point","timeout":30}]}
