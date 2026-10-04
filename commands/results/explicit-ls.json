@@ -1,0 +1,5 @@
+{
+  "id": "explicit-ls",
+  "cmd": "sudo ls -lh \"/opt/control-point/dist/assets/index-D1yhVjwK.js\" 2>&1; echo \"---\"; sudo ls /opt/control-point/dist/assets/ 2>&1 | grep -i index",
+  "output": "-rw-r--r-- 1 root controlpoint 1.7M Oct  4 03:50 /opt/control-point/dist/assets/index-D1yhVjwK.js\n---\nindex-B1dEgYEz.js\nindex-BDx-geHS.js\nindex-CrBFnu9-.js\nindex-D1yhVjwK.js\nindex-D3O5aPuG.js\nindex-DIXpUQmd.css\nindex-DIm-EZLi.css\nindex-hZaI5W01.css\n"
+}

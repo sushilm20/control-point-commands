@@ -1,1 +1,1 @@
-{"commands":[{"id":"explicit-ls","cmd":"sudo ls -lh \"/opt/control-point/dist/assets/index-D1yhVjwK.js\" 2>&1; echo \"---\"; sudo ls /opt/control-point/dist/assets/ 2>&1 | grep -i index","timeout":30}]}
+{"commands": []}
