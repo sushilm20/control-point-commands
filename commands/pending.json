@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"deploy-anthropic-001","cmd":"cd /opt/control-point && git pull origin main 2>&1 | tail -5 && sudo systemctl restart control-point && sleep 5 && systemctl is-active control-point","timeout":120}]}
