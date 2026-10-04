@@ -1,0 +1,5 @@
+{
+  "id": "check-resend",
+  "cmd": "sudo -u controlpoint bash -c 'grep -c RESEND_API_KEY /opt/control-point/.env; grep EMAIL_FROM /opt/control-point/.env | sed \"s/=.*/=***/\"'",
+  "output": "0\n"
+}
