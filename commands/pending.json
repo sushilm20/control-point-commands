@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"deploy-i18n","cmd":"cd /opt/control-point && git -C /home/hatch/workspace/team-manager rev-parse HEAD > /dev/null 2>&1; rsync -av --delete /home/hatch/workspace/team-manager/dist/ /opt/control-point/dist/ 2>&1 | tail -2 || echo 'RSYNC_NEEDS_VM_PATH'","timeout":60}]}
