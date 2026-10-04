@@ -1,0 +1,5 @@
+{
+  "id": "debug-copy",
+  "cmd": "ls /opt/bruno-commands/repo/deploy/dist/ 2>&1; echo \"---\"; ls /opt/bruno-commands/repo/deploy/dist/assets/index-* 2>&1; echo \"---\"; ls /opt/control-point/dist/ 2>&1; echo \"---\"; ls /opt/control-point/dist/assets/ 2>&1 | head -5",
+  "output": "BRAND.md\napple-touch-icon.png\nassets\nfonts\nicon-192.png\nicon-512.png\nindex.html\nmanifest.webmanifest\nocct\nog-image.jpg\ntiktok7t9dm7uHXBGAyYdfP26bMys9lUsxqMZj.txt\n---\n/opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js\n/opt/bruno-commands/repo/deploy/dist/assets/index-DIm-EZLi.css\n---\nls: cannot access '/opt/control-point/dist/': Permission denied\n---\nls: cannot access '/opt/control-point/dist/assets/': Permission denied\n"
+}
