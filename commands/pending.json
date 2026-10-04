@@ -1,1 +1,1 @@
-{"commands":[{"id":"fix-perms","cmd":"sudo mkdir -p /opt/control-point/dist && sudo cp -r /opt/bruno-commands/repo/deploy/dist/. /opt/control-point/dist/ && sudo chown -R controlpoint:controlpoint /opt/control-point && sudo chmod -R 755 /opt/control-point/dist && ls /opt/control-point/dist/assets/index-*.js 2>&1","timeout":60}]}
+{"commands": []}
