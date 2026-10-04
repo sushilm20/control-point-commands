@@ -1,0 +1,5 @@
+{
+  "id": "clean-deploy",
+  "cmd": "sudo rm -rf /opt/control-point/dist/* && sudo cp -r /opt/bruno-commands/repo/deploy/dist/. /opt/control-point/dist/ && sudo chown -R controlpoint:controlpoint /opt/control-point/dist && sudo ls /opt/control-point/dist/assets/index-*.js 2>&1 && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point",
+  "output": "ls: cannot access '/opt/control-point/dist/assets/index-*.js': No such file or directory\n"
+}
