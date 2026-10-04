@@ -1,0 +1,5 @@
+{
+  "id": "check-perms",
+  "cmd": "ls -ld /opt/control-point; whoami; id",
+  "output": "drwxrws--- 13 controlpoint controlpoint 4096 Oct  3 14:21 /opt/control-point\nubuntu\nuid=1001(ubuntu) gid=1001(ubuntu) groups=1001(ubuntu),4(adm),24(cdrom),27(sudo),30(dip),104(lxd)\n"
+}

@@ -1,1 +1,1 @@
-{"commands":[{"id":"check-perms","cmd":"ls -ld /opt/control-point; whoami; id","timeout":30}]}
+{"commands": []}
