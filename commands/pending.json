@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"restart-resend","cmd":"sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point","timeout":60}]}
