@@ -1,0 +1,5 @@
+{
+  "id": "deploy-gridfix",
+  "cmd": "sudo cp -r /opt/bruno-commands/repo/deploy/dist/* /opt/control-point/dist/ && sudo chown -R controlpoint:controlpoint /opt/control-point/dist && sudo systemctl restart control-point && sleep 8 && systemctl is-active control-point",
+  "output": "active\n"
+}
