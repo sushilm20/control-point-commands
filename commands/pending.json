@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"verify-sudo-path","cmd":"sudo -n true && echo SUDO_OK; ls -d /opt/control-point 2>&1; systemctl is-active control-point 2>&1","timeout":30}]}
