@@ -1,1 +1,1 @@
-{"commands":[{"id":"list-assets","cmd":"sudo ls /opt/control-point/dist/assets/ 2>&1 | head -20; echo \"---\"; sudo ls /opt/bruno-commands/repo/deploy/dist/assets/ 2>&1 | head -20","timeout":30}]}
+{"commands": []}

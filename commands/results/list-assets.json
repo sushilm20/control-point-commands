@@ -1,0 +1,5 @@
+{
+  "id": "list-assets",
+  "cmd": "sudo ls /opt/control-point/dist/assets/ 2>&1 | head -20; echo \"---\"; sudo ls /opt/bruno-commands/repo/deploy/dist/assets/ 2>&1 | head -20",
+  "output": "AiUsageChart-3iNkSwlC.js\nAiUsageChart-BqZrOcdp.js\nAiUsageChart-BvMUkoIB.js\nAiUsageChart-CzBBscKr.js\nAiUsageChart-D0yygF-n.js\nAttendanceTrend-Bcvbzl1A.js\nAttendanceTrend-C0UkYrMh.js\nAttendanceTrend-CAFk4B19.js\nAttendanceTrend-Cjo2I_Oc.js\nAttendanceTrend-DW-aq5c7.js\nBarChart-B-Zonue9.js\nBarChart-BdZqaB6-.js\nBarChart-CKe-meTT.js\nBarChart-CPzG4uET.js\nBarChart-DJ4i4Ols.js\nCadModelViewer-B5pWGpto.js\nCadModelViewer-BmXsGrxJ.js\nCadModelViewer-CTlqvv9O.js\nCadModelViewer-Cj9jXb9d.js\nCadModelViewer-mtjlTQpf.js\n---\nAiUsageChart-D0yygF-n.js\nAttendanceTrend-DW-aq5c7.js\nBarChart-CKe-meTT.js\nCadModelViewer-CTlqvv9O.js\nCartesianChart-aArzA1sx.js\nCodeView-CQfzepal.js\nLineChart-C488JFjv.js\nTaskAnalytics-CLCioSwI.js\nfavicon-DnXqy68y.svg\nindex-D1yhVjwK.js\nindex-DIm-EZLi.css\n"
+}
