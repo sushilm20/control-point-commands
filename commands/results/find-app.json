@@ -1,0 +1,5 @@
+{
+  "id": "find-app",
+  "cmd": "ls -d /opt/*/ 2>/dev/null; systemctl show control-point -p WorkingDirectory 2>/dev/null; pwd",
+  "output": "/opt/bruno-commands/\n/opt/control-point/\n/opt/unified-monitoring-agent/\nWorkingDirectory=/opt/control-point\n/opt/bruno-commands\n"
+}
