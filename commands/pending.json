@@ -1,1 +1,1 @@
-{"commands":[{"id":"verify-key","cmd":"sudo -u controlpoint bash -c 'grep -c ANTHROPIC_API_KEY /opt/control-point/.env; grep -c FIREWORKS_API_KEY /opt/control-point/.env || echo \"no fireworks\"'","timeout":30}]}
+{"commands": []}
