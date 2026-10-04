@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"read-source","cmd":"head -c 100 /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js 2>&1; echo \"\"; echo \"exit: $?\"; wc -c /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js 2>&1","timeout":30}]}
