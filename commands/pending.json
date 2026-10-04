@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"app-struct2","cmd":"sudo -u controlpoint bash -c 'ls /opt/control-point/ | head -20; echo \"---GIT---\"; ls -a /opt/control-point/ | grep git; echo \"---PKG---\"; head -3 /opt/control-point/package.json'","timeout":30}]}
