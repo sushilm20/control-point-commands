@@ -1,1 +1,1 @@
-{"commands":[{"id":"verify-dist","cmd":"sudo ls -la /opt/control-point/dist/ 2>&1 | head -5; echo \"---\"; sudo grep -o \"Română\" /opt/control-point/dist/assets/*.js 2>/dev/null | head -2; echo \"---\"; sudo ls /opt/control-point/ 2>&1 | head -15","timeout":30}]}
+{"commands": []}

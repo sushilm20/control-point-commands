@@ -1,0 +1,5 @@
+{
+  "id": "verify-dist",
+  "cmd": "sudo ls -la /opt/control-point/dist/ 2>&1 | head -5; echo \"---\"; sudo grep -o \"Rom\u00e2n\u0103\" /opt/control-point/dist/assets/*.js 2>/dev/null | head -2; echo \"---\"; sudo ls /opt/control-point/ 2>&1 | head -15",
+  "output": "total 232\ndrwxrwsr-x  5 controlpoint controlpoint   4096 Oct  4 02:44 .\ndrwxrws--- 13 controlpoint controlpoint   4096 Oct  4 02:44 ..\n-rw-rw-r--  1 controlpoint controlpoint    638 Oct  4 03:20 BRAND.md\n-rw-rw-r--  1 controlpoint controlpoint  14243 Oct  4 03:20 apple-touch-icon.png\n---\n---\nCODE_OF_CONDUCT.md\nLICENSE\nREADME.md\nai-hybrid.ts\nai.ts\nbin\ncode_repos\ndashboard.db\ndb.ts\ndeploy\ndist\ndocs\nemail-verify.ts\nfile.yaml\nindex.html\n"
+}
