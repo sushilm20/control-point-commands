@@ -1,0 +1,5 @@
+{
+  "id": "read-source",
+  "cmd": "head -c 100 /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js 2>&1; echo \"\"; echo \"exit: $?\"; wc -c /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js 2>&1",
+  "output": "const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/AttendanceTrend-DW-aq5c7.js\",\"asset\nexit: 0\n1769519 /opt/bruno-commands/repo/deploy/dist/assets/index-D1yhVjwK.js\n"
+}
