@@ -1,0 +1,5 @@
+{
+  "id": "check-mount",
+  "cmd": "ls -ld /opt/control-point 2>&1; readlink /opt/control-point 2>&1; df /opt/control-point 2>&1 | tail -2; mount | grep control-point 2>&1",
+  "output": "drwxrws--- 13 controlpoint controlpoint 4096 Oct  4 02:44 /opt/control-point\nFilesystem     1K-blocks    Used Available Use% Mounted on\n/dev/sda1       46212176 4469916  41725876  10% /\n"
+}
