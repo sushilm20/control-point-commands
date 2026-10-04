@@ -1,1 +1,1 @@
-{"commands":[{"id":"verify-token","cmd":"echo 'TOKEN WORKS' && date","timeout":30}]}
+{"commands":[{"id":"final-test","cmd":"echo 'POLLER IS LIVE' && date && uptime","timeout":30}]}
