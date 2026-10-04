@@ -1,0 +1,5 @@
+{
+  "id": "rename-file",
+  "cmd": "sudo mv /opt/control-point/dist/assets/test-index.js /opt/control-point/dist/assets/index-D1yhVjwK.js 2>&1; echo \"mv exit: $?\"; sudo ls -lh /opt/control-point/dist/assets/index-* 2>&1",
+  "output": "mv exit: 0\nls: cannot access '/opt/control-point/dist/assets/index-*': No such file or directory\n"
+}
