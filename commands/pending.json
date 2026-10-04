@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-server","cmd":"sudo cp /opt/bruno-commands/repo/deploy/server.ts /opt/control-point/server.ts && sudo cp /opt/bruno-commands/repo/deploy/ai.ts /opt/control-point/ai.ts 2>/dev/null; sudo chown controlpoint:controlpoint /opt/control-point/server.ts /opt/control-point/ai.ts && sudo systemctl restart control-point && sleep 10 && systemctl is-active control-point","timeout":90}]}
+{"commands": []}
