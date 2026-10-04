@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"nginx-root","cmd":"sudo grep -r \"root\" /etc/nginx/sites-enabled/ 2>&1 | head -5; echo \"---\"; sudo nginx -T 2>&1 | grep -A2 \"server_name.*tryctrlpoint\" | head -10","timeout":30}]}
