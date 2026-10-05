@@ -1,0 +1,5 @@
+{
+  "id": "deploy-20261005-0332",
+  "cmd": "sudo bash /opt/bruno-commands/repo/deploy/run-deploy.sh",
+  "output": "backup: dist.bak-20261005-033231\nbackend: ai.ts d82b9bf76a0f521b3e175101b7bcfcdc\nbackend: email-verify.ts 06e0477da6b5e44e38f00ee9d1e42a58\nbackend: public/icon-192.png cad134ab1997cb312d88c70a72b20b86\nbackend: public/logo.png aa6e745d842e5e1e593ab12928763e2b\nbackend: public/favicon.png 3917e4b3b82f39cac5a98d9171ee4a35\nbackend: public/icon-512.png b59c20929c4bb35d6e43112a0343049f\nbackend: public/apple-touch-icon.png c41b2b3195c26ce2f09e4577917d106a\nbackend: server.ts 202473f52faec5caee3253db0cdc26a9\nbackup: server-bak-20261005-033231\nservice: active\nOct 05 03:32:34 control-point tsx[66047]: Server running on http://localhost:3000\nbundle: index-De1cvjAY.js\nlocal http: 200\n"
+}
