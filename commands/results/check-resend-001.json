@@ -1,0 +1,5 @@
+{
+  "id": "check-resend-001",
+  "cmd": "grep -c RESEND_API_KEY /opt/control-point/.env 2>/dev/null || echo 'NOT FOUND'",
+  "output": "NOT FOUND\n"
+}
