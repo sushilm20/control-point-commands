@@ -1,1 +1,1 @@
-{"commands":[{"id":"deploy-20261005-0407","cmd":"sudo bash /opt/bruno-commands/repo/deploy/run-deploy.sh","timeout":240}]}
+{"commands": []}

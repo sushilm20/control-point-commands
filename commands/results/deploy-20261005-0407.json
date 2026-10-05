@@ -1,0 +1,5 @@
+{
+  "id": "deploy-20261005-0407",
+  "cmd": "sudo bash /opt/bruno-commands/repo/deploy/run-deploy.sh",
+  "output": "backup: dist.bak-20261005-040802\nbackend: ai.ts 0deb3c77668095ed238a2f9297b81a2b\nbackend: server/__tests__/ftcEvents.test.ts 277c34aef2b3cf392277f73a892eff3b\nbackend: server/ftcEvents.ts ee83c2a89a630658023b226b9687abae\nbackend: .env.example 9e0c527ed4c4b3564593516f00da6fac\nbackend: server.ts 9ccdc0663f8fcbd01ab7c490cf30ccc2\nbackup: server-bak-20261005-040802\nservice: active\nOct 05 04:08:04 control-point tsx[68006]: Server running on http://localhost:3000\nbundle: index-VxmQlhe8.js\nlocal http: 200\n"
+}
