@@ -32,6 +32,7 @@ import {
   markEmailVerified,
   issueVerificationCode,
   checkVerificationCode,
+  notifyTaskAssignees,
 } from "./email-verify.js";
 import {
   ONBOARDING_DDL,
@@ -93,6 +94,7 @@ import {
 import {
   registerVoiceRoutes,
   handleVoiceWSMessage,
+  dedupeVoiceChannels,
   voiceMaintenance,
   scheduleVoiceDisconnectCleanup,
   cancelVoiceDisconnectCleanup,
@@ -1513,22 +1515,54 @@ async function validateSession(sessionId: string): Promise<{ valid: boolean; mem
   }
 }
 
+// Stored files (/api/files/:id — avatars, chat images, emoji, …) are loaded
+// by plain <img> tags, which can't send the X-Session-ID header. The session
+// id is therefore mirrored into an HttpOnly cookie scoped to /api/files/ only
+// (see the middleware in startServer), and accepted from that cookie for GET
+// /api/files/* requests alone — every other route still needs the header, so
+// the cookie adds no CSRF surface beyond read-only file fetches.
+const FILES_COOKIE = "cp_files_sid";
+// Stored-file MIME types rendered inline (video/audio are allowed by prefix).
+// SVG is included: it can't run script inside <img>, and opened directly the
+// route's `sandbox` CSP blocks its scripts. HTML is never inline — see the
+// /api/files/:id route.
+const INLINE_SAFE_MIME = new Set([
+  "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/avif", "image/bmp", "image/x-icon",
+  "image/svg+xml",
+]);
+function readCookie(req: any, name: string): string | null {
+  const raw = String(req.headers?.cookie || "");
+  for (const part of raw.split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(0, i).trim() === name) {
+      try { return decodeURIComponent(part.slice(i + 1).trim()) || null; } catch { return null; }
+    }
+  }
+  return null;
+}
+function isFilesGet(req: any): boolean {
+  return req.method === "GET" && String(req.path || req.url || "").startsWith("/api/files/");
+}
+
 // Resolve the calling user + their workspace from a session id.
-// Looks in query (?sessionId=), JSON body, then the x-session-id header.
+// Looks in query (?sessionId=), JSON body, then the x-session-id header —
+// plus the files cookie, for GET /api/files/* only.
 function getSessionId(req: any): string | null {
-  return (req.query?.sessionId as string) || req.body?.sessionId || (req.headers?.['x-session-id'] as string) || null;
+  return (req.query?.sessionId as string) || req.body?.sessionId || (req.headers?.['x-session-id'] as string)
+    || (isFilesGet(req) ? readCookie(req, FILES_COOKIE) : null)
+    || null;
 }
 
 /**
  * Validate screenshot payloads for Bruno chat. Returns clean
- * { mimeType, data } pairs (base64, no data: prefix), capped at 2 images and
- * ~4MB each so the request stays under the 5MB JSON body limit. Anything
+ * { mimeType, data } pairs (base64, no data: prefix), capped at 5 images and
+ * ~4MB each so the request stays under the JSON body limit. Anything
  * malformed is dropped rather than failing the whole message.
  */
 function sanitizeBrunoImages(input: any): { mimeType: string; data: string }[] {
   if (!Array.isArray(input)) return [];
   const out: { mimeType: string; data: string }[] = [];
-  for (const im of input.slice(0, 2)) {
+  for (const im of input.slice(0, 5)) {
     try {
       const mimeType = String(im?.mimeType || "");
       let data = String(im?.data || "").replace(/^data:image\/\w+;base64,/, "");
@@ -1537,6 +1571,27 @@ function sanitizeBrunoImages(input: any): { mimeType: string; data: string }[] {
       if (data.length > 4 * 1024 * 1024) continue;
       if (data.length < 100) continue;
       out.push({ mimeType: mimeType.slice(0, 64), data });
+    } catch { /* skip malformed entries */ }
+  }
+  return out;
+}
+
+/**
+ * Sanitize attached PDFs for Bruno: { mimeType, data, name } tuples, capped at
+ * 5 PDFs and ~14MB base64 each. Only application/pdf is accepted.
+ */
+function sanitizeBrunoPdfs(input: any): { mimeType: string; data: string; name: string }[] {
+  if (!Array.isArray(input)) return [];
+  const out: { mimeType: string; data: string; name: string }[] = [];
+  for (const p of input.slice(0, 5)) {
+    try {
+      const mimeType = String(p?.mimeType || "");
+      let data = String(p?.data || "").replace(/^data:application\/pdf;base64,/, "");
+      if (mimeType !== "application/pdf") continue;
+      if (!/^[A-Za-z0-9+/=]+$/.test(data)) continue;
+      if (data.length > 14 * 1024 * 1024) continue;
+      if (data.length < 100) continue;
+      out.push({ mimeType: "application/pdf", data, name: String(p?.name || "document.pdf").slice(0, 128) });
     } catch { /* skip malformed entries */ }
   }
   return out;
@@ -1651,25 +1706,49 @@ function parsePerms(json: any): string[] {
 
 // Seed the system roles for a team and backfill existing members:
 // account_type 'admin' -> Admin role, everyone else -> Member role.
+// Ensures all three default roles exist (Admin, Member, Verified Member) —
+// creates any that are missing, so existing teams get new defaults too.
 async function ensureRolesSeeded(teamId: number) {
-  const has = (await dbGet("SELECT id FROM roles WHERE team_id = ? LIMIT 1", teamId)) as any;
-  if (has) return;
-  const adminRole = (await dbRun(
-    "INSERT INTO roles (team_id, name, color, permissions, position, is_system) VALUES (?,?,?,?,?,1)",
-    teamId, "Admin", "#FFC700", JSON.stringify(["*"]), 0
-  )) as any;
-  const memberRole = (await dbRun(
-    "INSERT INTO roles (team_id, name, color, permissions, position, is_system) VALUES (?,?,?,?,?,1)",
-    teamId, "Member", "#71717A", JSON.stringify(["view_ai", "manage_calendar", "manage_communications", "manage_tasks", "manage_outreach"]), 1
-  )) as any;
-  const members = (await dbAll(
-    "SELECT id, account_type FROM members WHERE team_id = ? AND COALESCE(is_active, 1) = 1", teamId
-  )) as any[];
-  for (const m of members) {
+  const existing = (await dbAll("SELECT name FROM roles WHERE team_id = ?", teamId)) as any[];
+  const names = new Set(existing.map((r: any) => r.name));
+
+  let adminRoleId: number | null = null;
+  let memberRoleId: number | null = null;
+
+  if (!names.has("Admin")) {
+    const adminRole = (await dbRun(
+      "INSERT INTO roles (team_id, name, color, permissions, position, is_system) VALUES (?,?,?,?,?,1)",
+      teamId, "Admin", "#FFC700", JSON.stringify(["*"]), 0
+    )) as any;
+    adminRoleId = Number(adminRole.lastInsertRowid);
+  }
+  if (!names.has("Member")) {
+    const memberRole = (await dbRun(
+      "INSERT INTO roles (team_id, name, color, permissions, position, is_system) VALUES (?,?,?,?,?,1)",
+      teamId, "Member", "#71717A", JSON.stringify(["view_ai", "manage_calendar", "manage_communications", "manage_tasks", "manage_outreach"]), 1
+    )) as any;
+    memberRoleId = Number(memberRole.lastInsertRowid);
+  }
+  if (!names.has("Verified Member")) {
     await dbRun(
-      "INSERT OR IGNORE INTO member_roles (member_id, role_id) VALUES (?,?)",
-      m.id, m.account_type === "admin" ? adminRole.lastInsertRowid : memberRole.lastInsertRowid
+      "INSERT INTO roles (team_id, name, color, permissions, position, is_system) VALUES (?,?,?,?,?,1)",
+      teamId, "Verified Member", "#22C55E", JSON.stringify(["view_ai", "manage_inventory", "manage_calendar", "manage_tasks", "manage_documentation", "manage_communications", "manage_outreach", "manage_attendance", "manage_code", "manage_budget"]), 2
     );
+  }
+
+  // Backfill role assignments for members (only when we just created the roles).
+  if (adminRoleId || memberRoleId) {
+    const adminId = adminRoleId || (await systemRoleId(teamId, "Admin"));
+    const memberId = memberRoleId || (await systemRoleId(teamId, "Member"));
+    const members = (await dbAll(
+      "SELECT id, account_type FROM members WHERE team_id = ? AND COALESCE(is_active, 1) = 1", teamId
+    )) as any[];
+    for (const m of members) {
+      const roleId = m.account_type === "admin" ? adminId : memberId;
+      if (roleId) {
+        await dbRun("INSERT OR IGNORE INTO member_roles (member_id, role_id) VALUES (?,?)", m.id, roleId);
+      }
+    }
   }
 }
 
@@ -1838,6 +1917,33 @@ async function startServer() {
   const wss = new WebSocketServer({ server });
 
   app.use(express.json({ limit: "5mb" })); // bound JSON bodies (AI payloads, code saves) — uploads go through multer's own limits
+
+  // Keep the /api/files/ cookie in step with the session, so <img> tags for
+  // stored files authenticate (see FILES_COOKIE): from the X-Session-ID
+  // header on any API call, and from a sessionId handed out in a JSON
+  // response (login / signup / verify), so the very first render after
+  // signing in already has it. The value is validated on use.
+  app.use("/api", (req, res, next) => {
+    const have = readCookie(req, FILES_COOKIE);
+    const secure = req.secure || String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https";
+    let set: string | null = null;
+    const setFilesCookie = (sid: string) => {
+      if (!sid || sid === have || sid === set || res.headersSent) return;
+      set = sid;
+      res.append(
+        "Set-Cookie",
+        `${FILES_COOKIE}=${encodeURIComponent(sid)}; Path=/api/files/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure ? "; Secure" : ""}`
+      );
+    };
+    const headerSid = req.headers["x-session-id"];
+    if (typeof headerSid === "string") setFilesCookie(headerSid);
+    const json = res.json.bind(res);
+    res.json = (body: any) => {
+      if (body && typeof body.sessionId === "string") setFilesCookie(body.sessionId);
+      return json(body);
+    };
+    next();
+  });
 
   // CORS for the GitHub Pages mirror (MIRROR_ORIGINS). Header-based sessions
   // mean no credentials flag is needed; the X-Session-ID header is allowlisted
@@ -2430,7 +2536,7 @@ async function startServer() {
       return mirrorOrigins().includes(u.origin);
     } catch { return false; }
   }
-  const oauthStates = new Map<string, { expiry: number; intent: string; provider: string; returnTo?: string }>(); // state -> {expiry, intent, provider}
+  const oauthStates = new Map<string, { expiry: number; intent: string; provider: string; returnTo?: string; memberId?: number }>(); // state -> {expiry, intent, provider}
   // Pending OAuth signups: token -> {provider, providerSub, email, name, intent, expiry}. Single-use, 10 min.
   const pendingOAuthSignups = new Map<string, { provider: string; providerSub: string; email: string; name: string; avatarUrl: string | null; intent: string; expiry: number }>();
 
@@ -2550,16 +2656,68 @@ async function startServer() {
   // either start a session (existing member) or stash a single-use signup token.
   // Fill in a missing name/avatar from the OAuth provider profile for every
   // membership row on this account. Never clobbers a name the user chose or an
-  // avatar they uploaded themselves.
+  // avatar they uploaded themselves. OAuth avatar URLs (Google, Discord, etc.)
+  // can expire or break, so we download and store them locally on first sight.
   async function fillOAuthProfile(email: string, name: string, avatarUrl: string | null) {
     const rows = (await dbAll("SELECT id, name, avatar_url FROM members WHERE email = ? AND COALESCE(is_active, 1) = 1", email)) as any[];
     const cleanName = (name || '').trim();
     const emailPrefix = email.split('@')[0];
+
+    // Download a provider avatar and store it locally. Returns the local
+    // file URL, or null if the download failed.
+    const downloadAvatar = async (url: string, memberId: number): Promise<string | null> => {
+      try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const buf = Buffer.from(await resp.arrayBuffer());
+        const ctype = resp.headers.get('content-type') || '';
+        if (resp.ok && buf.length > 0 && buf.length < 2 * 1024 * 1024 && ctype.startsWith('image/')) {
+          const fid = await storeFile({
+            teamId: null, memberId, kind: 'avatar',
+            filename: 'oauth-avatar', mimeType: ctype.split(';')[0], buffer: buf,
+          });
+          return fileUrl(fid);
+        }
+      } catch { /* download failed */ }
+      return null;
+    };
+
+    // Check if a local /api/files/:id avatar actually exists in storage.
+    const localAvatarExists = async (url: string | null): Promise<boolean> => {
+      const m = /^\/api\/files\/(\d+)$/.exec(String(url || ''));
+      if (!m) return false;
+      try {
+        const f = (await dbGet("SELECT id FROM stored_files WHERE id = ?", Number(m[1]))) as any;
+        return !!f;
+      } catch { return false; }
+    };
+
     for (const r of rows) {
       const nameIsDefault = !r.name || r.name === emailPrefix;
-      const avatarIsEmpty = !r.avatar_url;
       const newName = cleanName && nameIsDefault ? cleanName : r.name;
-      const newAvatar = avatarUrl && avatarIsEmpty ? avatarUrl : r.avatar_url;
+      let newAvatar = r.avatar_url;
+
+      const storedIsLocal = typeof r.avatar_url === 'string' && r.avatar_url.startsWith('/api/files/');
+      const storedIsExternal = typeof r.avatar_url === 'string' && /^https?:\/\//.test(r.avatar_url);
+      const localOk = storedIsLocal ? await localAvatarExists(r.avatar_url) : false;
+
+      if (storedIsLocal && localOk) {
+        // Working local avatar — never touch it.
+      } else if (avatarUrl) {
+        // Missing, broken, or external avatar: (re)download the fresh provider URL.
+        const local = await downloadAvatar(avatarUrl, r.id);
+        if (local) {
+          newAvatar = local;
+        } else if (!storedIsExternal) {
+          // Download failed and nothing usable stored — clear it so the UI
+          // falls back to initials instead of a broken image.
+          newAvatar = null;
+        }
+        // else: keep the existing external URL (might still work).
+      } else if (storedIsLocal && !localOk) {
+        // Local file is gone and no fresh URL — clear it.
+        newAvatar = null;
+      }
+
       if (newName !== r.name || newAvatar !== r.avatar_url) {
         await dbRun("UPDATE members SET name = ?, avatar_url = ? WHERE id = ?", newName, newAvatar, r.id);
       }
@@ -2851,6 +3009,249 @@ async function startServer() {
     await completeOAuthSignup('google', req, res);
   });
 
+  // --- Google Calendar linking (per-member, from Settings) ---
+  // Separate OAuth flow with calendar.events scope. Stores a refresh token per
+  // member; the admin's `google_calendar_sync` setting controls whether team
+  // events auto-push to every linked member's personal calendar.
+
+  const getCalendarSyncEnabled = async (): Promise<boolean> => {
+    try {
+      const row = (await dbGet("SELECT value FROM settings WHERE key = 'google_calendar_sync'")) as any;
+      return row?.value === '1';
+    } catch { return false; }
+  };
+
+  const getGoogleAccessToken = async (memberId: number): Promise<string | null> => {
+    try {
+      const link = (await dbGet("SELECT refresh_token FROM google_calendar_links WHERE member_id = ?", memberId)) as any;
+      if (!link?.refresh_token) return null;
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          refresh_token: link.refresh_token,
+          grant_type: "refresh_token",
+        }),
+      });
+      if (!tokenRes.ok) {
+        // Refresh token revoked/expired — drop the link so the user can re-link.
+        if (tokenRes.status === 400 || tokenRes.status === 401) {
+          await dbRun("DELETE FROM google_calendar_links WHERE member_id = ?", memberId);
+        }
+        return null;
+      }
+      const { access_token } = (await tokenRes.json()) as any;
+      return access_token || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Start the calendar-link OAuth flow (must be signed in).
+  // Uses its own redirect URI (/api/auth/google/calendar/callback) — it must
+  // be added to the Google Cloud Console's authorized redirect URIs.
+  const getCalendarRedirectUri = (req: any): string => {
+    const base = getOAuthRedirectUri(req, 'google');
+    return base.replace('/api/auth/google/callback', '/api/auth/google/calendar/callback');
+  };
+  app.get("/api/auth/google/calendar", async (req, res) => {
+    try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return;
+      if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        return res.status(400).json({ error: "Google sign-in is not configured" });
+      }
+      const state = randomHex(16);
+      oauthStates.set(state, {
+        expiry: Date.now() + 10 * 60 * 1000,
+        intent: 'calendar_link',
+        provider: 'google',
+        memberId: auth.memberId,
+      });
+      const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: getCalendarRedirectUri(req),
+        response_type: "code",
+        scope: "openid email https://www.googleapis.com/auth/calendar.events",
+        state,
+        access_type: "offline",
+        prompt: "consent select_account",
+      });
+      res.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString());
+    } catch (error) {
+      console.error("Calendar link start error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // OAuth callback for calendar linking lives at /api/auth/google/calendar/callback (below).
+
+  app.get("/api/auth/google/calendar/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query as { code?: string; state?: string };
+      const pending = state ? oauthStates.get(state) : undefined;
+      if (state) oauthStates.delete(state);
+      if (!code || !pending || pending.expiry < Date.now() || pending.intent !== 'calendar_link') {
+        return res.redirect("/settings?cal_error=invalid_state");
+      }
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: getCalendarRedirectUri(req),
+          grant_type: "authorization_code",
+        }),
+      });
+      if (!tokenRes.ok) throw new Error("Token exchange failed");
+      const { access_token, refresh_token } = (await tokenRes.json()) as any;
+      if (!refresh_token) throw new Error("No refresh token granted");
+      const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+      const profile = profileRes.ok ? ((await profileRes.json()) as any) : {};
+      await dbRun(
+        "INSERT OR REPLACE INTO google_calendar_links (member_id, google_email, refresh_token, linked_at) VALUES (?, ?, ?, datetime('now'))",
+        pending.memberId, profile.email || '', refresh_token
+      );
+      res.redirect("/settings?cal_linked=1");
+    } catch (error) {
+      console.error("Calendar link callback error:", error);
+      res.redirect("/settings?cal_error=link_failed");
+    }
+  });
+
+  // Calendar link status for the current member.
+  app.get("/api/calendar/link", async (req, res) => {
+    try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return;
+      const link = (await dbGet(
+        "SELECT google_email, linked_at FROM google_calendar_links WHERE member_id = ?", auth.memberId
+      )) as any;
+      const syncEnabled = await getCalendarSyncEnabled();
+      res.json({ linked: !!link, google_email: link?.google_email || null, linked_at: link?.linked_at || null, team_sync_enabled: syncEnabled });
+    } catch (error) {
+      console.error("Error fetching calendar link:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Unlink the current member's Google Calendar.
+  app.delete("/api/calendar/link", async (req, res) => {
+    try {
+      const auth = await requireAuth(req, res);
+      if (!auth) return;
+      await dbRun("DELETE FROM google_calendar_links WHERE member_id = ?", auth.memberId);
+      await dbRun("DELETE FROM event_calendar_sync WHERE member_id = ?", auth.memberId);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error unlinking calendar:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Push one team event to one member's Google Calendar.
+  const pushEventToGoogle = async (memberId: number, event: any): Promise<string | null> => {
+    const accessToken = await getGoogleAccessToken(memberId);
+    if (!accessToken) return null;
+    const body: any = {
+      summary: event.title,
+      description: `${event.description || ''}\n\n— via Control Point`.trim(),
+      location: event.location || undefined,
+    };
+    if (event.start_time) {
+      // Timed event — interpret in the server's local timezone
+      const dateStr = `${event.date}T${event.start_time}:00`;
+      const endStr = event.end_time ? `${event.date}T${event.end_time}:00` : null;
+      body.start = { dateTime: dateStr };
+      body.end = { dateTime: endStr || dateStr };
+    } else {
+      body.start = { date: event.date };
+      const end = new Date(event.date + 'T12:00:00Z');
+      end.setUTCDate(end.getUTCDate() + 1);
+      body.end = { date: end.toISOString().slice(0, 10) };
+    }
+    try {
+      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) return null;
+      const created = (await r.json()) as any;
+      return created.id || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const syncEventToCalendars = async (event: any, teamId: number) => {
+    if (!(await getCalendarSyncEnabled())) return;
+    try {
+      const links = (await dbAll(
+        `SELECT g.member_id FROM google_calendar_links g
+         JOIN members m ON m.id = g.member_id
+         WHERE m.team_id = ? AND COALESCE(m.is_active, 1) = 1`, teamId
+      )) as any[];
+      for (const l of links) {
+        const googleEventId = await pushEventToGoogle(l.member_id, event);
+        if (googleEventId) {
+          await dbRun(
+            "INSERT OR REPLACE INTO event_calendar_sync (event_id, member_id, google_event_id) VALUES (?, ?, ?)",
+            event.id, l.member_id, googleEventId
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Calendar sync failed:", (e as any)?.message);
+    }
+  };
+
+  const updateSyncedEvent = async (event: any) => {
+    if (!(await getCalendarSyncEnabled())) return;
+    try {
+      const rows = (await dbAll("SELECT member_id, google_event_id FROM event_calendar_sync WHERE event_id = ?", event.id)) as any[];
+      for (const r of rows) {
+        const accessToken = await getGoogleAccessToken(r.member_id);
+        if (!accessToken) continue;
+        const body: any = {
+          summary: event.title,
+          description: `${event.description || ''}\n\n— via Control Point`.trim(),
+          location: event.location || undefined,
+        };
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(r.google_event_id)}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.error("Calendar sync update failed:", (e as any)?.message);
+    }
+  };
+
+  const deleteSyncedEvent = async (eventId: number) => {
+    try {
+      const rows = (await dbAll("SELECT member_id, google_event_id FROM event_calendar_sync WHERE event_id = ?", eventId)) as any[];
+      for (const r of rows) {
+        const accessToken = await getGoogleAccessToken(r.member_id);
+        if (!accessToken) continue;
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(r.google_event_id)}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }).catch(() => {});
+      }
+      await dbRun("DELETE FROM event_calendar_sync WHERE event_id = ?", eventId);
+    } catch (e) {
+      console.error("Calendar sync delete failed:", (e as any)?.message);
+    }
+  };
+
   // --- Self-service account management ---
 
   const currentSessionId = (req: any): string | null =>
@@ -2858,6 +3259,9 @@ async function startServer() {
 
   // Log out: invalidate the current session server-side
   app.post("/api/auth/logout", async (req, res) => {
+    // Expire the files cookie first, so it's cleared even if the session
+    // delete below fails.
+    res.append("Set-Cookie", `${FILES_COOKIE}=; Path=/api/files/; HttpOnly; SameSite=Lax; Max-Age=0`);
     try {
       const sid = currentSessionId(req);
       if (sid) await dbRun("DELETE FROM sessions WHERE id = ?", sid);
@@ -3372,7 +3776,7 @@ async function startServer() {
     const data = await ftcQuery(
       `query TeamData($number: Int!, $season: Int!) {
         teamByNumber(number: $number) {
-          number name schoolName rookieYear activeSeasons
+          number name schoolName rookieYear activeSeasons sponsors
           location { city state country }
           quickStats(season: $season) {
             season
@@ -3384,6 +3788,7 @@ async function startServer() {
             awards { type }
           }
         }
+        activeTeamsCount(season: $season)
       }`,
       { number, season }
     );
@@ -3395,10 +3800,12 @@ async function startServer() {
       number: t.number,
       name: t.name,
       school: t.schoolName,
+      sponsors: (t.sponsors || []).filter(Boolean),
       city: t.location?.city, state: t.location?.state, country: t.location?.country,
       rookieYear: t.rookieYear,
       seasons: [...new Set((t.activeSeasons || []).filter((s: number) => s >= 2022 && s <= 2025))].sort((a: number, b: number) => b - a),
       season,
+      totalTeams: data?.data?.activeTeamsCount ?? null,
       opr: { tot: norm(qs.tot), auto: norm(qs.auto), dc: norm(qs.dc), eg: norm(qs.eg) },
       events: (t.events || []).map((e: any) => ({
         code: e.event?.code,
@@ -3430,6 +3837,125 @@ async function startServer() {
     try {
       const payload = await getFtcTeamPayload(number, season);
       if (!payload) return res.status(404).json({ error: "FTC Scout has no record of that team number" });
+      ftcCache.set(cacheKey, { at: Date.now(), data: payload });
+      res.json(payload);
+    } catch (e: any) {
+      res.status(502).json({ error: "Could not reach FTC Scout — try again in a moment" });
+    }
+  });
+
+  // Single event detail: venue info + full match list (quals + playoffs) with
+  // alliance breakdowns, for the connected team's event history drill-down.
+  async function getFtcEventPayload(number: number, season: number, code: string): Promise<any> {
+    const data = await ftcQuery(
+      `query EventDetail($number: Int!, $season: Int!, $code: String!) {
+        eventByCode(season: $season, code: $code) {
+          name start end type timezone address
+          location { city state country }
+          teams { teamNumber team { name } }
+          matches {
+            matchNum tournamentLevel series description hasBeenPlayed
+            scores {
+              __typename
+              ... on MatchScores2022 { red { totalPoints } blue { totalPoints } }
+              ... on MatchScores2023 { red { totalPoints } blue { totalPoints } }
+              ... on MatchScores2024 { red { totalPoints } blue { totalPoints } }
+              ... on MatchScores2025 { red { totalPoints } blue { totalPoints } }
+            }
+            teams { teamNumber station }
+          }
+        }
+        teamByNumber(number: $number) {
+          events(season: $season) {
+            event { code }
+            stats { __typename ... on TeamEventStats${season} { rank wins losses ties opr { totalPointsNp } } }
+            awards { type }
+          }
+        }
+      }`,
+      { number, season, code }
+    );
+    const ev = data?.data?.eventByCode;
+    if (!ev) return null;
+    // Team name lookup for alliance display
+    const names: Record<number, string> = {};
+    for (const t of ev.teams || []) {
+      if (t?.teamNumber) names[t.teamNumber] = t.team?.name || `Team ${t.teamNumber}`;
+    }
+    const nameOf = (n: number) => names[n] || `Team ${n}`;
+    // FTC Scout orders match.teams as red1, red2, blue1, blue2
+    const matches = (ev.matches || [])
+      .map((m: any) => {
+        const teams = (m.teams || []).map((t: any) => ({ number: t.teamNumber, name: nameOf(t.teamNumber) }));
+        const red = teams.slice(0, 2);
+        const blue = teams.slice(2, 4);
+        const redScore = m.scores?.red?.totalPoints ?? null;
+        const blueScore = m.scores?.blue?.totalPoints ?? null;
+        const onRed = red.some((t: any) => t.number === number);
+        const onBlue = blue.some((t: any) => t.number === number);
+        let result: "win" | "loss" | "tie" | null = null;
+        if (m.hasBeenPlayed && redScore != null && blueScore != null && (onRed || onBlue)) {
+          const mine = onRed ? redScore : blueScore;
+          const theirs = onRed ? blueScore : redScore;
+          result = mine > theirs ? "win" : mine < theirs ? "loss" : "tie";
+        }
+        return {
+          num: m.matchNum,
+          label: m.description || `Match ${m.matchNum}`,
+          level: m.tournamentLevel || null, // "Quals" | "Semis" | "Finals"
+          series: m.series ?? null,
+          played: !!m.hasBeenPlayed,
+          red, blue, redScore, blueScore, result,
+        };
+      })
+      .sort((a: any, b: any) => {
+        // Quals first (by match num), then playoffs (by match num)
+        const rank = (l: string | null) => (l === "Quals" ? 0 : 1);
+        return rank(a.level) - rank(b.level) || a.num - b.num;
+      });
+    // The connected team's stats + awards at this event
+    const teamEvents = data?.data?.teamByNumber?.events || [];
+    const mine = teamEvents.find((e: any) => e?.event?.code === code);
+    return {
+      code,
+      season,
+      name: ev.name,
+      start: ev.start ? String(ev.start).slice(0, 10) : null,
+      end: ev.end ? String(ev.end).slice(0, 10) : null,
+      type: ev.type || null,
+      venue: ev.address || null,
+      city: ev.location?.city || null, state: ev.location?.state || null, country: ev.location?.country || null,
+      timezone: ev.timezone || null,
+      rank: mine?.stats?.rank ?? null,
+      wins: mine?.stats?.wins ?? null, losses: mine?.stats?.losses ?? null, ties: mine?.stats?.ties ?? null,
+      oprNp: mine?.stats?.opr?.totalPointsNp != null ? Math.round(mine.stats.opr.totalPointsNp * 10) / 10 : null,
+      awards: (mine?.awards || []).map((a: any) => a.type).filter(Boolean),
+      matches,
+      qualsCount: matches.filter((m: any) => m.level === "Quals").length,
+      playoffsCount: matches.filter((m: any) => m.level !== "Quals").length,
+    };
+  }
+
+  app.get("/api/ftc/event", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const season = parseInt(String(req.query.season || "2025"), 10);
+    if (![2022, 2023, 2024, 2025].includes(season)) {
+      return res.status(400).json({ error: "Season data is available for 2022–2025" });
+    }
+    const code = String(req.query.code || "").trim().slice(0, 32);
+    if (!code) return res.status(400).json({ error: "Missing event code" });
+    const team = (await dbGet("SELECT ftc_team_number FROM teams WHERE id = ?", auth.teamId)) as any;
+    const number = team?.ftc_team_number;
+    if (!number) return res.status(404).json({ error: "No FTC team connected — set your team number in Settings" });
+
+    const cacheKey = `ftcevent:${number}:${season}:${code}`;
+    const cached = ftcCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < FTC_CACHE_TTL) return res.json(cached.data);
+
+    try {
+      const payload = await getFtcEventPayload(number, season, code);
+      if (!payload) return res.status(404).json({ error: "FTC Scout has no record of that event" });
       ftcCache.set(cacheKey, { at: Date.now(), data: payload });
       res.json(payload);
     } catch (e: any) {
@@ -3567,8 +4093,9 @@ async function startServer() {
     const updates: any = { name: cleanName, role: (role || '').trim() };
     if (bruno_teach_mode !== undefined) updates.bruno_teach_mode = bruno_teach_mode ? 1 : 0;
     if (bruno_output_level !== undefined) {
-      const lvl = String(bruno_output_level);
-      if (['low', 'medium', 'high', 'max'].includes(lvl)) updates.bruno_output_level = lvl;
+      let lvl = String(bruno_output_level);
+      if (lvl === 'max') lvl = 'high'; // 'max' was removed — map to 'high'
+      if (['low', 'medium', 'high'].includes(lvl)) updates.bruno_output_level = lvl;
     }
     if (presence_status !== undefined) {
       if (!(PRESENCE_STATUSES as readonly string[]).includes(presence_status)) {
@@ -4423,6 +4950,16 @@ async function startServer() {
     if (req.body?.post_restricted !== undefined) {
       await dbRun("UPDATE chat_channels SET post_restricted = ? WHERE id = ?", req.body.post_restricted ? 1 : 0, id);
     }
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+      if (!name) return res.status(400).json({ error: "Channel name can't be empty" });
+      try {
+        await dbRun("UPDATE chat_channels SET name = ? WHERE id = ?", name, id);
+      } catch (e: any) {
+        if (String(e?.message || '').includes('UNIQUE')) return res.status(409).json({ error: "A channel with that name already exists" });
+        throw e;
+      }
+    }
     const updated = (await dbGet("SELECT * FROM chat_channels WHERE id = ?", id)) as any;
     broadcastToTeam(auth.teamId!, { type: "channel_updated", channel: updated });
     res.json({ channel: updated });
@@ -4555,10 +5092,12 @@ async function startServer() {
       if (!auth) return;
       const id = parseInt(req.params.id, 10);
       if (!Number.isFinite(id)) return res.status(404).end();
+      // Metadata only: the BLOB is read after the auth + ETag checks, so a
+      // 304 revalidation never pulls the file out of the database.
       const f = (await dbGet(
-        `SELECT id, team_id, kind, filename, mime_type, data FROM stored_files WHERE id = ?`, id
+        `SELECT id, team_id, kind, filename, mime_type FROM stored_files WHERE id = ? AND data IS NOT NULL`, id
       )) as any;
-      if (!f || !f.data) return res.status(404).end();
+      if (!f) return res.status(404).end();
       let email = String((auth as any).email || "");
       if (!email) {
         const me = (await dbGet(`SELECT email FROM members WHERE id = ?`, auth.memberId)) as any;
@@ -4568,14 +5107,29 @@ async function startServer() {
       if (!isOwner && f.kind !== "avatar") {
         if (!f.team_id || f.team_id !== auth.teamId) return res.status(403).end();
       }
-      const buf = Buffer.from(f.data as ArrayBuffer);
-      res.setHeader("Content-Type", f.mime_type || "application/octet-stream");
+      // Uploads are untrusted and their MIME type is whatever the uploader
+      // sent. Since the files cookie makes these URLs openable directly in a
+      // tab, only media renders inline; anything else (HTML, ...) is forced
+      // to an opaque download. The sandbox CSP + nosniff mean
+      // nothing served here can ever run script on the app's origin.
+      const mime = String(f.mime_type || "").toLowerCase().split(";")[0].trim();
+      const inlineSafe = INLINE_SAFE_MIME.has(mime) || mime.startsWith("video/") || mime.startsWith("audio/");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+      // Revalidate every use (no stale reuse after logout / account switch);
+      // stored file content never changes, so an id-based ETag makes repeat
+      // loads a cheap 304 — after the auth checks above.
+      const etag = `"f${f.id}"`;
+      res.setHeader("ETag", etag);
+      res.setHeader("Cache-Control", "private, no-cache");
+      if (req.headers["if-none-match"] === etag) return res.status(304).end();
+      const row = (await dbGet(`SELECT data FROM stored_files WHERE id = ?`, f.id)) as any;
+      if (!row?.data) return res.status(404).end();
+      const buf = Buffer.from(row.data as ArrayBuffer);
+      res.setHeader("Content-Type", inlineSafe ? mime : "application/octet-stream");
       res.setHeader("Content-Length", buf.length);
-      res.setHeader("Cache-Control", "private, max-age=86400");
-      if (f.filename) {
-        const safe = String(f.filename).replace(/["\r\n]/g, "").slice(0, 120) || "file";
-        res.setHeader("Content-Disposition", `inline; filename="${safe}"`);
-      }
+      const safe = String(f.filename || "file").replace(/["\r\n]/g, "").slice(0, 120) || "file";
+      res.setHeader("Content-Disposition", `${inlineSafe ? "inline" : "attachment"}; filename="${safe}"`);
       res.send(buf);
     } catch (e) {
       console.error("file serve error:", (e as any)?.message || e);
@@ -4990,6 +5544,85 @@ Rules:
     res.json({ success: true });
   });
 
+  app.post("/api/notifications/unread", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: "Invalid" });
+    await dbBatch(ids.map((id: any) => ({ sql: "UPDATE notifications SET is_read = 0 WHERE id = ? AND user_id = ?", args: [id, auth.memberId] })));
+    res.json({ success: true });
+  });
+
+  // Delete a single notification (must belong to the requester).
+  app.delete("/api/notifications/:id", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    await dbRun("DELETE FROM notifications WHERE id = ? AND user_id = ?", req.params.id, auth.memberId);
+    res.json({ success: true });
+  });
+
+  // Clear all notifications for the requester.
+  app.delete("/api/notifications", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    await dbRun("DELETE FROM notifications WHERE user_id = ?", auth.memberId);
+    res.json({ success: true });
+  });
+
+  // --- Link preview: fetch OpenGraph metadata for chat embeds ---
+  // Server-side fetch avoids CORS issues. 8s timeout, 1MB cap, HTML only.
+  app.get("/api/link-preview", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const rawUrl = String(req.query.url || '').slice(0, 2048);
+    if (!rawUrl) return res.status(400).json({ error: "Missing url" });
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('bad protocol');
+    } catch {
+      return res.status(400).json({ error: "Invalid URL" });
+    }
+    // SSRF guard: block private/internal addresses
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'localhost' || host.endsWith('.local') || host === '127.0.0.1' || host === '::1' ||
+        /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
+      return res.status(400).json({ error: "Private URLs not allowed" });
+    }
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const resp = await fetch(parsed.toString(), {
+        signal: ctrl.signal,
+        headers: { 'User-Agent': 'ControlPoint-LinkPreview/1.0', 'Accept': 'text/html' },
+        redirect: 'follow',
+      });
+      clearTimeout(timer);
+      const ctype = resp.headers.get('content-type') || '';
+      if (!resp.ok || !ctype.includes('text/html')) {
+        return res.json({ url: parsed.toString(), site: parsed.hostname });
+      }
+      const buf = await resp.arrayBuffer();
+      if (buf.byteLength > 1024 * 1024) return res.json({ url: parsed.toString(), site: parsed.hostname });
+      const html = new TextDecoder().decode(buf.slice(0, 200 * 1024)); // only need the head
+      const meta = (prop: string): string | null => {
+        const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
+               || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i'));
+        return m ? m[1].slice(0, 500) : null;
+      };
+      const titleM = html.match(/<title[^>]*>([^<]{1,200})<\/title>/i);
+      res.json({
+        url: parsed.toString(),
+        site: parsed.hostname,
+        title: meta('og:title') || (titleM ? titleM[1].trim() : null),
+        description: meta('og:description') || meta('description'),
+        image: meta('og:image'),
+      });
+    } catch (e: any) {
+      res.json({ url: parsed.toString(), site: parsed.hostname });
+    }
+  });
+
   // --- Feedback: any user can send feedback to the app owner ---
   app.post("/api/feedback", (req, res, next) => {
     feedbackUpload.single('attachment')(req, res, (err: any) => {
@@ -5066,8 +5699,24 @@ Rules:
     const auth = await requireOwner(req, res);
     if (!auth) return;
     const { status } = req.body || {};
-    const next = status === 'resolved' ? 'resolved' : 'new';
-    (await dbRun("UPDATE feedback SET status = ? WHERE id = ?", next, req.params.id));
+    const fid = parseInt(req.params.id, 10);
+    if (status === 'resolved') {
+      // Notify the reporter, then delete so it's gone from the Owner Portal.
+      const fb = (await dbGet("SELECT id, user_id, category, message FROM feedback WHERE id = ?", fid)) as any;
+      if (fb?.user_id) {
+        const preview = String(fb.message || '').slice(0, 80);
+        await createNotification(
+          fb.user_id,
+          `Your feedback${fb.category ? ` (${fb.category})` : ''} has been addressed by the Control Point team. Thanks for reporting it!`,
+          'system',
+          { feedbackId: fb.id, feedbackPreview: preview }
+        );
+      }
+      (await dbRun("DELETE FROM feedback WHERE id = ?", fid));
+    } else {
+      const next = 'new';
+      (await dbRun("UPDATE feedback SET status = ? WHERE id = ?", next, fid));
+    }
     res.json({ success: true });
   });
 
@@ -5418,13 +6067,46 @@ Rules:
     }
   });
 
-  // Tasks
+  // Tasks — multi-assignee support.
+  // task_assignees is the source of truth; tasks.assigned_to is legacy.
+  const getTaskAssigneeIds = async (taskId: number): Promise<number[]> => {
+    try {
+      const rows = (await dbAll("SELECT member_id FROM task_assignees WHERE task_id = ?", taskId)) as any[];
+      const ids = rows.map((r: any) => r.member_id);
+      if (ids.length > 0) return ids;
+    } catch { /* table may not exist yet on very old DBs */ }
+    // Legacy fallback
+    const t = (await dbGet("SELECT assigned_to FROM tasks WHERE id = ?", taskId)) as any;
+    return t?.assigned_to ? [t.assigned_to] : [];
+  };
+  const setTaskAssignees = async (taskId: number, memberIds: number[], teamId: number) => {
+    // Validate all members belong to the team
+    const valid: number[] = [];
+    for (const mid of memberIds) {
+      const m = (await dbGet("SELECT team_id FROM members WHERE id = ?", mid)) as any;
+      if (m && m.team_id === teamId) valid.push(mid);
+    }
+    await dbRun("DELETE FROM task_assignees WHERE task_id = ?", taskId);
+    for (const mid of valid) {
+      await dbRun("INSERT OR IGNORE INTO task_assignees (task_id, member_id) VALUES (?, ?)", taskId, mid);
+    }
+    // Keep legacy column in sync (first assignee, for old clients)
+    await dbRun("UPDATE tasks SET assigned_to = ? WHERE id = ?", valid[0] || null, taskId);
+    return valid;
+  };
+  const withAssignees = async (tasks: any[]) => {
+    for (const t of tasks) {
+      t.assignee_ids = await getTaskAssigneeIds(t.id);
+    }
+    return tasks;
+  };
+
   app.get("/api/tasks", async (req, res) => {
     try {
       const auth = await requireAuth(req, res);
       if (!auth) return;
-      const tasks = (await dbAll("SELECT * FROM tasks WHERE team_id = ?", auth.teamId));
-      res.json(tasks);
+      const tasks = (await dbAll("SELECT * FROM tasks WHERE team_id = ?", auth.teamId)) as any[];
+      res.json(await withAssignees(tasks));
     } catch (error) {
       console.error("Error fetching tasks:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -5435,26 +6117,41 @@ Rules:
     try {
       const auth = await requirePerm(req, res, "manage_tasks");
       if (!auth) return;
-      const { title, description, status, assigned_to, due_date, is_board } = req.body;
+      const { title, description, status, assigned_to, assignee_ids, due_date, is_board } = req.body;
       const createdAt = new Date().toISOString();
 
-      const targetAssignedTo = assigned_to || null;
-      if (targetAssignedTo) {
-        const m = (await dbGet("SELECT team_id FROM members WHERE id = ?", targetAssignedTo)) as any;
-        if (!m || m.team_id !== auth.teamId) {
-          return res.status(403).json({ error: "Not your workspace" });
-        }
+      // assignee_ids (array) is preferred; assigned_to (single) for legacy clients
+      let targetIds: number[] = [];
+      if (Array.isArray(assignee_ids)) {
+        targetIds = assignee_ids.map(Number).filter((n: number) => Number.isFinite(n));
+      } else if (assigned_to) {
+        targetIds = [Number(assigned_to)];
       }
-
-      const info = (await dbRun("INSERT INTO tasks (team_id, title, description, status, assigned_to, due_date, is_board, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", auth.teamId, title, description, status || 'todo', targetAssignedTo, due_date, is_board || 0, createdAt));
-
-      if (targetAssignedTo) {
-        createNotification(targetAssignedTo, `New task assigned: ${title}`, 'task');
+      const validIds: number[] = [];
+      for (const mid of targetIds) {
+        const m = (await dbGet("SELECT team_id FROM members WHERE id = ?", mid)) as any;
+        if (m && m.team_id === auth.teamId) validIds.push(mid);
       }
+      if (targetIds.length > 0 && validIds.length === 0) {
+        return res.status(403).json({ error: "Not your workspace" });
+      }
+      const legacyAssignedTo = validIds[0] || null;
 
-      const created = (await dbGet("SELECT * FROM tasks WHERE id = ?", info.lastInsertRowid)) as any;
+      const info = (await dbRun("INSERT INTO tasks (team_id, title, description, status, assigned_to, due_date, is_board, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", auth.teamId, title, description, status || 'todo', legacyAssignedTo, due_date, is_board || 0, createdAt));
+
+      const taskId = Number(info.lastInsertRowid);
+      await setTaskAssignees(taskId, validIds, auth.teamId);
+
+      for (const mid of validIds) {
+        createNotification(mid, `New task assigned: ${title}`, 'task');
+      }
+      // Email the assignees (best-effort, never blocks the response).
+      void notifyTaskAssignees(taskId, title || "", description || "", due_date || "", auth.teamId, auth.memberId, validIds);
+
+      const created = (await dbGet("SELECT * FROM tasks WHERE id = ?", taskId)) as any;
+      created.assignee_ids = validIds;
       broadcastToTeam(auth.teamId, { type: "task_created", task: created });
-      res.json({ id: info.lastInsertRowid });
+      res.json({ id: taskId });
     } catch (error) {
       console.error("Error creating task:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -5558,8 +6255,12 @@ Rules:
           "INSERT INTO tasks (team_id, title, description, status, assigned_to, due_date, is_board, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           auth.teamId, title, String(it?.description || "").trim().slice(0, 1000), status, targetAssignedTo, due, 0, createdAt
         ));
-        saved.push(info.lastInsertRowid);
-        if (targetAssignedTo) createNotification(targetAssignedTo, `New task assigned: ${title}`, 'task');
+        const bulkTaskId = Number(info.lastInsertRowid);
+        saved.push(bulkTaskId);
+        if (targetAssignedTo) {
+          await setTaskAssignees(bulkTaskId, [targetAssignedTo], auth.teamId);
+          createNotification(targetAssignedTo, `New task assigned: ${title}`, 'task');
+        }
       }
       // Bulk import: receivers just refresh their task list.
       broadcastToTeam(auth.teamId, { type: "tasks_changed" });
@@ -5580,7 +6281,8 @@ Rules:
       }
       // Managers may edit anything; assignees without the permission may only move status.
       const canManage = await hasPerm(auth, 'manage_tasks');
-      const isAssignee = task.assigned_to === auth.memberId;
+      const assigneeIds = await getTaskAssigneeIds(Number(req.params.id));
+      const isAssignee = assigneeIds.includes(auth.memberId) || task.assigned_to === auth.memberId;
       if (!canManage && !isAssignee) {
         return res.status(403).json({ error: "You can only update tasks assigned to you" });
       }
@@ -5589,8 +6291,8 @@ Rules:
       if (req.body?.status === 'done' && task.status !== 'done') {
         return res.status(400).json({ error: "Mark a task done through the completion dialog — proof is required." });
       }
-      const { status, title, description, assigned_to, due_date, is_board } = req.body;
-      if (!canManage && (title !== undefined || description !== undefined || assigned_to !== undefined || due_date !== undefined || is_board !== undefined)) {
+      const { status, title, description, assigned_to, assignee_ids, due_date, is_board } = req.body;
+      if (!canManage && (title !== undefined || description !== undefined || assigned_to !== undefined || assignee_ids !== undefined || due_date !== undefined || is_board !== undefined)) {
         return res.status(403).json({ error: "Only team managers can edit task details" });
       }
       const completedAt = status === 'done' ? new Date().toISOString() : null;
@@ -5606,28 +6308,38 @@ Rules:
       if (description !== undefined) { sets.push('description = ?'); vals.push(description); }
       if (due_date !== undefined) { sets.push('due_date = ?'); vals.push(due_date || null); }
       if (is_board !== undefined) { sets.push('is_board = ?'); vals.push(is_board ? 1 : 0); }
-      if (assigned_to !== undefined) {
-        const targetAssignedTo = assigned_to || null;
-        if (targetAssignedTo) {
-          const m = (await dbGet("SELECT team_id FROM members WHERE id = ?", targetAssignedTo)) as any;
-          if (!m || m.team_id !== auth.teamId) {
-            return res.status(403).json({ error: "Not your workspace" });
+      if (assigned_to !== undefined || assignee_ids !== undefined) {
+        let newIds: number[] = [];
+        if (Array.isArray(assignee_ids)) {
+          newIds = assignee_ids.map(Number).filter((n: number) => Number.isFinite(n));
+        } else if (assigned_to) {
+          newIds = [Number(assigned_to)];
+        }
+        const valid = await setTaskAssignees(Number(req.params.id), newIds, auth.teamId);
+        if (newIds.length > 0 && valid.length === 0) {
+          return res.status(403).json({ error: "Not your workspace" });
+        }
+        // Notify newly added assignees
+        for (const mid of valid) {
+          if (!assigneeIds.includes(mid)) {
+            createNotification(mid, `New task assigned: ${task.title}`, 'task');
           }
         }
-        sets.push('assigned_to = ?'); vals.push(targetAssignedTo);
       }
       if (sets.length > 0) {
         (await dbRun(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`, ...vals, req.params.id));
       }
 
-      if (task.assigned_to) {
+      const notifyIds = await getTaskAssigneeIds(Number(req.params.id));
+      for (const mid of notifyIds) {
         const note = status !== undefined && title === undefined
           ? `Task status updated to ${status}: ${task.title}`
           : `Task updated: ${title ?? task.title}`;
-        createNotification(task.assigned_to, note, 'task');
+        createNotification(mid, note, 'task');
       }
 
       const updated = (await dbGet("SELECT * FROM tasks WHERE id = ?", req.params.id)) as any;
+      updated.assignee_ids = notifyIds;
       broadcastToTeam(auth.teamId, { type: "task_updated", task: updated });
       res.json({ success: true });
     } catch (error) {
@@ -5644,6 +6356,7 @@ Rules:
       if (!task || task.team_id !== auth.teamId) {
         return res.status(404).json({ error: "Task not found" });
       }
+      try { await dbRun("DELETE FROM task_assignees WHERE task_id = ?", req.params.id); } catch { /* table may not exist yet */ }
       (await dbRun("DELETE FROM tasks WHERE id = ?", req.params.id));
       broadcastToTeam(auth.teamId, { type: "task_deleted", id: Number(req.params.id) });
       res.json({ success: true });
@@ -5666,9 +6379,10 @@ Rules:
         return res.status(404).json({ error: "Task not found" });
       }
       const canManage = await hasPerm(auth, 'manage_tasks');
-      const isAssignee = task.assigned_to === auth.memberId;
-      if (!canManage && !isAssignee && task.assigned_to) {
-        return res.status(403).json({ error: "Only the assignee or a manager can complete this task" });
+      const taskAssignees = await getTaskAssigneeIds(Number(req.params.id));
+      const isAssignee = taskAssignees.includes(auth.memberId) || task.assigned_to === auth.memberId;
+      if (!canManage && !isAssignee && (taskAssignees.length > 0 || task.assigned_to)) {
+        return res.status(403).json({ error: "Only an assignee or a manager can complete this task" });
       }
       const notes = String(req.body?.notes || "").trim().slice(0, 2000);
       // Proof images are persisted in the database so they survive restarts.
@@ -5728,7 +6442,11 @@ Rules:
       "INSERT INTO events (title, description, date, start_time, end_time, location, event_type, team_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       e.title, e.notes || "", e.date, e.time || "", "", "", "meeting", teamId, memberId
     )) as any;
-    return info.lastInsertRowid;
+    const eventId = info.lastInsertRowid;
+    // Push to linked personal Google Calendars (if the admin enabled sync)
+    const newEvent = (await dbGet("SELECT * FROM events WHERE id = ?", eventId)) as any;
+    if (newEvent) void syncEventToCalendars(newEvent, teamId);
+    return eventId;
   }
 
   app.post("/api/events", async (req, res) => {
@@ -5769,6 +6487,8 @@ Rules:
         location ?? existing.location,
         event_type ?? existing.event_type,
         req.params.id));
+      const updatedEvent = (await dbGet("SELECT * FROM events WHERE id = ?", req.params.id)) as any;
+      if (updatedEvent) void updateSyncedEvent(updatedEvent);
       res.json({ ok: true });
     } catch (error) {
       console.error("Error updating event:", error);
@@ -5782,6 +6502,7 @@ Rules:
       if (!auth) return;
       const existing: any = (await dbGet("SELECT team_id FROM events WHERE id = ?", req.params.id));
       if (!existing || existing.team_id !== auth.teamId) return res.status(404).json({ error: "Event not found" });
+      await deleteSyncedEvent(Number(req.params.id));
       (await dbRun("DELETE FROM events WHERE id = ?", req.params.id));
       res.json({ ok: true });
     } catch (error) {
@@ -7257,6 +7978,8 @@ Rules:
   // when the user confirms an event. Parse it, validate, strip it from the
   // visible text. Returns { text, event } where event is null when absent/invalid.
   const EVENT_BLOCK_RE = /```event\s*\r?\n([\s\S]*?)\r?\n```/;
+  const SCOUT_BLOCK_RE = /```scout-team\s*\r?\n([\s\S]*?)\r?\n```/;
+  const SCOUT_EVENT_RE = /```scout-event\s*\r?\n([\s\S]*?)\r?\n```/;
   // Bruno calendar skill: the model ends its reply with a fenced ```event block
   // (a JSON object OR array) when the user confirms calendar events. Parse,
   // validate, strip. Events are only PROPOSED here — the client shows a
@@ -7283,6 +8006,43 @@ Rules:
       if (valid.length && valid.length <= 20) events = valid;
     } catch { /* malformed JSON — treat as no events */ }
     return { text: src.replace(EVENT_BLOCK_RE, "").trim(), events };
+  }
+
+  // Bruno scouting skill: the model ends its reply with a fenced ```scout-team
+  // block (a JSON object OR array of {number} entries) when the user asks about
+  // other teams. Parse, validate, strip. The backend fetches the stats and
+  // appends a summary to the reply.
+  function extractScoutBlock(fullText: string): { text: string; numbers: number[] | null } {
+    const src = String(fullText || "");
+    const m = src.match(SCOUT_BLOCK_RE);
+    if (!m) return { text: src, numbers: null };
+    let numbers: number[] | null = null;
+    try {
+      const raw = JSON.parse(m[1]);
+      const arr = Array.isArray(raw) ? raw : [raw];
+      const valid = arr.map((p: any) => {
+        const n = parseInt(p?.number, 10);
+        return Number.isFinite(n) && n > 0 && n < 100000 ? n : null;
+      }).filter(Boolean) as number[];
+      if (valid.length && valid.length <= 3) numbers = valid;
+    } catch { /* malformed JSON — treat as no scout request */ }
+    return { text: src.replace(SCOUT_BLOCK_RE, "").trim(), numbers };
+  }
+
+  // Bruno scouting skill: the model ends its reply with a fenced ```scout-event
+  // block ({"code": "USNJCMP"}) when the user asks about an entire event's
+  // field. The backend fetches all teams at the event with their OPRs.
+  function extractScoutEventBlock(fullText: string): { text: string; code: string | null } {
+    const src = String(fullText || "");
+    const m = src.match(SCOUT_EVENT_RE);
+    if (!m) return { text: src, code: null };
+    let code: string | null = null;
+    try {
+      const raw = JSON.parse(m[1]);
+      const c = String(raw?.code || "").trim().slice(0, 32);
+      if (c) code = c;
+    } catch { /* malformed JSON — treat as no scout request */ }
+    return { text: src.replace(SCOUT_EVENT_RE, "").trim(), code };
   }
 
   // Bruno calendar skill: the model ends its reply with a fenced ```delete-event
@@ -7525,6 +8285,8 @@ Rules:
       // "[screenshot attached]" marker instead). This keeps screenshots from
       // accumulating and eating server space.
       const images = sanitizeBrunoImages(req.body?.images);
+      const pdfs = sanitizeBrunoPdfs(req.body?.pdfs);
+      // Merge PDFs into the file list for the AI (Gemini inlineData handles both).
       // Misuse heuristics run async (never blocks the reply); flags land in the owner review queue.
       // The owner's own testing is never flagged — reviewing your own flags is noise.
       const reqChatId = parseInt(req.body?.chatId, 10) || null;
@@ -7600,6 +8362,8 @@ Rules:
         t = extractCommunicationsBlock(t).text;
         t = extractTasksBlock(t).text;
         t = extractBudgetBlock(t).text;
+        t = extractScoutBlock(t).text;
+        t = extractScoutEventBlock(t).text;
         return t;
       };
       // Optional chat persistence: validate access, store the user message now
@@ -7610,7 +8374,7 @@ Rules:
         if (!chat || !canViewBrunoChat(chat, auth.memberId)) {
           return res.status(403).json({ error: "Chat not found" });
         }
-        const userText = messages[messages.length - 1].text + (images.length ? " 📷 [screenshot attached]" : "");
+        const userText = messages[messages.length - 1].text + (images.length ? " 📷 [screenshot attached]" : "") + (pdfs.length ? ` 📄 [${pdfs.length} PDF${pdfs.length > 1 ? 's' : ''} attached: ${pdfs.map(p => p.name).join(', ')}]` : "");
         const msgCount = (await dbGet("SELECT COUNT(*) AS n FROM bruno_messages WHERE chat_id = ?", chat.id)) as any;
         // The NavGPT -> Bruno handoff re-sends the same coding question under the
         // Bruno persona — don't persist a duplicate user message for it.
@@ -7643,7 +8407,7 @@ Rules:
             maxTokens,
             stream: true,
             webSearch: req.body?.webSearch === true,
-            images: images.length ? images : undefined,
+            images: (images.length || pdfs.length) ? [...images, ...pdfs.map(p => ({ mimeType: p.mimeType, data: p.data }))] : undefined,
             onChunk: (chunk) => res.write(chunk),
             onUsage: (u) => { usage = u; },
             signal: streamAbort.signal,
@@ -7680,12 +8444,65 @@ Rules:
         maxTokens,
         stream: false,
         webSearch: req.body?.webSearch === true,
-        images: images.length ? images : undefined,
+        images: (images.length || pdfs.length) ? [...images, ...pdfs.map(p => ({ mimeType: p.mimeType, data: p.data }))] : undefined,
         onUsage: (u) => { nonStreamUsage = u; },
         signal: nonStreamAbort.signal,
       });
       const result = aiReply.text;
-      const finalResult = stripActionBlocks(String(result || ""));
+      const scout = extractScoutBlock(String(result || ""));
+      const scoutEvent = extractScoutEventBlock(String(result || ""));
+      let finalResult = stripActionBlocks(String(result || ""));
+      // If Bruno requested team scouting, fetch the stats and append a summary.
+      if (scout.numbers?.length) {
+        const season = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+        const summaries: string[] = [];
+        for (const num of scout.numbers) {
+          try {
+            const p = await getFtcTeamPayload(num, season).catch(() => null);
+            if (p) {
+              const opr = p.opr || {};
+              const fmt = (s: any) => s?.value != null ? `${s.value}${s.rank ? ` (#${s.rank})` : ''}` : 'n/a';
+              const evts = (p.events || []).slice(0, 3).map((e: any) =>
+                `${e.name}${e.rank ? ` (#${e.rank})` : ''}${e.wins != null ? ` ${e.wins}-${e.losses}-${e.ties}` : ''}`
+              ).join('; ');
+              summaries.push(`**Team ${p.number} — ${p.name}**: OPR ${fmt(opr.tot)} (auto ${fmt(opr.auto)}, teleop ${fmt(opr.dc)}, endgame ${fmt(opr.eg)})${evts ? `\nRecent: ${evts}` : ''}`);
+            } else {
+              summaries.push(`**Team ${num}**: no data found for ${season} season`);
+            }
+          } catch { summaries.push(`**Team ${num}**: lookup failed`); }
+        }
+        if (summaries.length) {
+          finalResult += `\n\n---\n**Scouting data** (FTC Scout, ${season} season):\n\n${summaries.join('\n\n')}`;
+        }
+      }
+      // If Bruno requested event-wide scouting, fetch all teams at the event.
+      if (scoutEvent.code) {
+        const season = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+        try {
+          const teamRow = (await dbGet("SELECT ftc_team_number FROM teams WHERE id = ?", auth.teamId)) as any;
+          const myNum = parseInt(teamRow?.ftc_team_number, 10) || 0;
+          const evPayload = await getFtcEventPayload(myNum, season, scoutEvent.code).catch(() => null);
+          if (evPayload?.teams?.length) {
+            // Get OPR for each team at the event (top 20 by expected strength)
+            const teamNums = evPayload.teams.map((t: any) => t.teamNumber).filter((n: number) => n !== myNum).slice(0, 30);
+            const rows: string[] = [];
+            for (const n of teamNums) {
+              try {
+                const p = await getFtcTeamPayload(n, season).catch(() => null);
+                if (p?.opr?.tot?.value != null) {
+                  rows.push(`${p.number} ${p.name} — OPR ${p.opr.tot.value}${p.opr.tot.rank ? ` (#${p.opr.tot.rank})` : ''}`);
+                }
+              } catch { /* skip */ }
+            }
+            rows.sort((a, b) => {
+              const va = parseFloat(a.split('OPR ')[1] || '0');
+              const vb = parseFloat(b.split('OPR ')[1] || '0');
+              return vb - va;
+            });
+            finalResult += `\n\n---\n**Event scouting: ${evPayload.name}** (${teamNums.length} teams, FTC Scout ${season}):\n\nTop teams by OPR:\n${rows.slice(0, 15).map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
+          }
+        } catch { /* event scouting is best-effort */ }
+      }
       const promptChars = messages.reduce((n: number, m: any) => n + String(m.text || "").length, 0);
       logAiUsage(auth.memberId, auth.teamId, nonStreamUsage, promptChars, String(finalResult || "").length, "ok", aiReply.provider);
       if (chat) {
@@ -8546,8 +9363,27 @@ Rules:
       if (docsCount?.n) links.push(`Onshape: ${docsCount.n} doc(s) linked`);
       if (links.length) parts.push(`LINKED ACCOUNTS:\n${links.join("\n")}`);
 
+      // FTC competition data so Bruno can answer "who should we pick for
+      // alliances?" and similar strategy questions. Best-effort; never blocks.
+      try {
+        const ftcRow = (await dbGet("SELECT ftc_team_number FROM teams WHERE id = ?", teamId)) as any;
+        const ftcNum = parseInt(ftcRow?.ftc_team_number, 10);
+        if (Number.isFinite(ftcNum) && ftcNum > 0) {
+          const season = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+          const payload = await getFtcTeamPayload(ftcNum, season).catch(() => null);
+          if (payload) {
+            const opr = payload.opr || {};
+            const fmt = (s: any) => s?.value != null ? `${s.value}${s.rank ? ` (#${s.rank})` : ''}` : 'n/a';
+            const evts = (payload.events || []).slice(0, 5).map((e: any) =>
+              `${e.name} (${e.date || '?'})${e.code ? ` [code: ${e.code}]` : ''}${e.rank ? ` — quals #${e.rank}` : ''}${e.wins != null ? ` ${e.wins}-${e.losses}-${e.ties}` : ''}${e.awards?.length ? ` [${e.awards.join(', ')}]` : ''}`
+            );
+            parts.push(`FTC STATS (team #${payload.number}, ${season} season):\nOPR total ${fmt(opr.tot)} | auto ${fmt(opr.auto)} | teleop ${fmt(opr.dc)} | endgame ${fmt(opr.eg)}\nRecent events:\n${evts.join('\n') || '(none)'}`);
+          }
+        }
+      } catch { /* FTC context is best-effort */ }
+
       const snap = parts.join("\n\n");
-      return snap.length > 2500 ? snap.slice(0, 2500) + "\n…(truncated)" : snap;
+      return snap.length > 3500 ? snap.slice(0, 3500) + "\n…(truncated)" : snap;
     } catch (err) {
       console.error("[bruno] team snapshot context query failed:", err);
       return "";
@@ -9078,6 +9914,69 @@ Rules:
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  // One-time boot cleanup: remove duplicate voice channels for every team.
+  dedupeVoiceChannels(voiceDeps).catch((e) => console.warn('[voice] boot dedupe failed:', e?.message));
+
+  // Boot backfill: ensure every team has the default role set
+  // (Admin, Member, Verified Member) — creates any that are missing.
+  (async () => {
+    try {
+      const teams = (await dbAll("SELECT id FROM teams")) as any[];
+      for (const t of teams) {
+        try { await ensureRolesSeeded(t.id); } catch { /* per-team errors shouldn't block boot */ }
+      }
+    } catch (e) {
+      console.warn('[roles] boot backfill failed:', (e as any)?.message);
+    }
+  })();
+
+  // One-time force logout: clear all sessions so everyone signs in fresh.
+  // This triggers the OAuth avatar migration for each user on their next login.
+  (async () => {
+    try {
+      const done = (await dbGet("SELECT value FROM settings WHERE key = 'force_logout_v1'")) as any;
+      if (!done) {
+        const r = await dbRun("DELETE FROM sessions");
+        await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('force_logout_v1', '1')");
+        console.log(`[auth] force logout: cleared ${r.changes} sessions — all users must sign in again`);
+      }
+    } catch (e) {
+      console.warn('[auth] force logout failed:', (e as any)?.message);
+    }
+  })();
+
+  // Boot backfill: migrate external avatar URLs to local storage. Broken
+  // (expired) ones get cleared so they fall back to initials instead of
+  // showing broken images.
+  (async () => {
+    try {
+      const rows = (await dbAll(
+        "SELECT id, avatar_url FROM members WHERE avatar_url LIKE 'http%' AND COALESCE(is_active, 1) = 1"
+      )) as any[];
+      for (const r of rows) {
+        try {
+          const resp = await fetch(r.avatar_url, { signal: AbortSignal.timeout(8000) });
+          const buf = Buffer.from(await resp.arrayBuffer());
+          const ctype = resp.headers.get('content-type') || '';
+          if (resp.ok && buf.length > 0 && buf.length < 2 * 1024 * 1024 && ctype.startsWith('image/')) {
+            const fid = await storeFile({
+              teamId: null, memberId: r.id, kind: 'avatar',
+              filename: 'oauth-avatar', mimeType: ctype.split(';')[0], buffer: buf,
+            });
+            await dbRun("UPDATE members SET avatar_url = ? WHERE id = ?", fileUrl(fid), r.id);
+            console.log(`[avatar-backfill] migrated avatar for member ${r.id}`);
+          } else if (resp.status === 404 || resp.status === 410) {
+            // URL is dead — clear it so the UI falls back to initials.
+            await dbRun("UPDATE members SET avatar_url = NULL WHERE id = ?", r.id);
+            console.log(`[avatar-backfill] cleared dead avatar for member ${r.id}`);
+          }
+        } catch { /* network error — leave it for next boot */ }
+      }
+    } catch (e) {
+      console.warn('[avatar-backfill] failed:', (e as any)?.message);
+    }
+  })();
 }
 
 startServer();
