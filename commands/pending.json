@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands":[{"id":"igdiag-20261006-072724","cmd":"whoami; echo ---; ls -la /opt/control-point 2>&1 | head -5; echo ---; ls -ld /opt/control-point 2>&1"}]}
