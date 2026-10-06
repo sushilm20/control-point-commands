@@ -1,0 +1,5 @@
+{
+  "id": "igwatch-20261006-132922",
+  "cmd": "whoami; ls -ld /opt/control-point; sudo -n git -C /opt/control-point rev-parse HEAD 2>&1",
+  "output": "ubuntu\ndrwxrws--- 17 controlpoint controlpoint 4096 Oct  6 12:51 /opt/control-point\nfatal: not a git repository (or any of the parent directories): .git\n"
+}
