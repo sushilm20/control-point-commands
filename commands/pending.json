@@ -1,1 +1,1 @@
-{"commands": [{"id": "igwatch2-20261006-062833", "cmd": "sudo -n systemctl is-active control-point; echo ---; sudo -n git -C /opt/control-point log --oneline -3 2>&1 | head -5"}]}
+{"commands": []}
