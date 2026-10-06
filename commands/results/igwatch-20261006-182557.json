@@ -1,0 +1,5 @@
+{
+  "id": "igwatch-20261006-182557",
+  "cmd": "git -C /opt/control-point rev-parse HEAD",
+  "output": "\nSTDERR: fatal: cannot change to '/opt/control-point': Permission denied\n"
+}
