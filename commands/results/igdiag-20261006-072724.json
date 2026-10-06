@@ -1,0 +1,5 @@
+{
+  "id": "igdiag-20261006-072724",
+  "cmd": "whoami; echo ---; ls -la /opt/control-point 2>&1 | head -5; echo ---; ls -ld /opt/control-point 2>&1",
+  "output": "ubuntu\n---\nls: cannot open directory '/opt/control-point': Permission denied\n---\ndrwxrws--- 17 controlpoint controlpoint 4096 Oct  6 07:08 /opt/control-point\n"
+}
