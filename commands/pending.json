@@ -1,1 +1,1 @@
-{"commands": [{"id": "igwatch3-20261006-043124", "cmd": "sudo -n systemctl is-active control-point; sudo -n journalctl -u control-point --no-pager -n 15 2>&1 | tail -15"}]}
+{"commands": []}
