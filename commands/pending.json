@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands": [{"id": "igdiag-20261007-162901", "cmd": "whoami; ls -ld /opt/control-point; git -C /opt/control-point rev-parse HEAD 2>&1 | head -2"}]}
