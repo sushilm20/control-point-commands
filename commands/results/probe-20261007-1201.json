@@ -1,0 +1,5 @@
+{
+  "id": "probe-20261007-1201",
+  "cmd": "whoami; echo ---; ls -la /opt/ 2>&1 | head; echo ---; ls /opt/control-point 2>&1 | head -3; echo ---; env | grep -i -o \"TURSO_[A-Z_]*\" | head",
+  "output": "ubuntu\n---\ntotal 20\ndrwxr-xr-x  5 root         root         4096 Oct  3 18:48 .\ndrwxr-xr-x 22 root         root         4096 Oct  4 01:27 ..\ndrwxr-xr-x  4 ubuntu       ubuntu       4096 Oct  4 01:27 bruno-commands\ndrwxrws--- 17 controlpoint controlpoint 4096 Oct  7 15:28 control-point\ndrwxr-xr-x  6 root         root         4096 Oct  3 04:54 unified-monitoring-agent\n---\nls: cannot open directory '/opt/control-point': Permission denied\n---\n"
+}

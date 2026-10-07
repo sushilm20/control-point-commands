@@ -1,1 +1,1 @@
-{"commands": [{"id": "probe-20261007-1201", "cmd": "whoami; echo ---; ls -la /opt/ 2>&1 | head; echo ---; ls /opt/control-point 2>&1 | head -3; echo ---; env | grep -i -o \"TURSO_[A-Z_]*\" | head"}]}
+{"commands": []}
