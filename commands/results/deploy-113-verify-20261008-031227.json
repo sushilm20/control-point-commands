@@ -1,0 +1,5 @@
+{
+  "id": "deploy-113-verify-20261008-031227",
+  "cmd": "sudo git -C /opt/control-point rev-parse HEAD",
+  "output": "\nSTDERR: fatal: not a git repository (or any of the parent directories): .git\n"
+}

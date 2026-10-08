@@ -1,0 +1,5 @@
+{
+  "id": "deploy-113-pull-20261008-031227",
+  "cmd": "sudo git -C /opt/control-point pull origin main 2>&1 | head -5",
+  "output": "fatal: not a git repository (or any of the parent directories): .git\n"
+}
