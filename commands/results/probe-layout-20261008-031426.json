@@ -1,0 +1,5 @@
+{
+  "id": "probe-layout-20261008-031426",
+  "cmd": "ls -la /opt/control-point/ | head -20; echo ---; ls /opt/control-point/server/predict/ 2>/dev/null; echo ---; ls -d /opt/bruno-commands/repo 2>/dev/null && git -C /opt/bruno-commands/repo rev-parse HEAD 2>&1 | head -1",
+  "output": "---\n---\n/opt/bruno-commands/repo\n60ccbdcf97a391e989a79ce4e7bc790de20c85a6\n\nSTDERR: ls: cannot open directory '/opt/control-point/': Permission denied\n"
+}
