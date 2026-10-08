@@ -1,0 +1,5 @@
+{
+  "id": "d113-copy2-20261008-031802",
+  "cmd": "sudo cp /tmp/cp-deploy/server/predict/how-it-works.html /opt/control-point/server/predict/how-it-works.html && sudo chown controlpoint:controlpoint /opt/control-point/server/predict/how-it-works.html && sudo chmod 644 /opt/control-point/server/predict/how-it-works.html && sudo cmp /tmp/cp-deploy/server/predict/how-it-works.html /opt/control-point/server/predict/how-it-works.html && echo COPIED_OK",
+  "output": "\nSTDERR: cp: cannot stat '/tmp/cp-deploy/server/predict/how-it-works.html': No such file or directory\n"
+}

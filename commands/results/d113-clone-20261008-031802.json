@@ -1,0 +1,5 @@
+{
+  "id": "d113-clone-20261008-031802",
+  "cmd": "rm -rf /tmp/cp-deploy && git clone --depth 1 https://github.com/Control-Point-FTC/control-point.git /tmp/cp-deploy 2>&1 | tail -1 && git -C /tmp/cp-deploy rev-parse HEAD && ls -la /tmp/cp-deploy/server/predict/how-it-works.html",
+  "output": "fatal: could not read Username for 'https://github.com': No such device or address\n\nSTDERR: fatal: cannot change to '/tmp/cp-deploy': No such file or directory\n"
+}
