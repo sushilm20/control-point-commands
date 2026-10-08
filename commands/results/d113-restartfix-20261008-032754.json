@@ -1,0 +1,5 @@
+{
+  "id": "d113-restartfix-20261008-032754",
+  "cmd": "sudo systemctl restart control-point && sleep 5 && sudo systemctl is-active control-point",
+  "output": "active\n"
+}
