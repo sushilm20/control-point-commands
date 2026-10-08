@@ -1,0 +1,5 @@
+{
+  "id": "deploy-2-setup",
+  "cmd": "rm -f /tmp/deploy-setup.log /tmp/deploy-setup.done; sudo nohup bash -c '/opt/control-point/deploy/oracle-vm-setup.sh > /tmp/deploy-setup.log 2>&1; echo SETUP_EXIT:$? >> /tmp/deploy-setup.log; touch /tmp/deploy-setup.done' >/dev/null 2>&1 < /dev/null & echo SETUP_LAUNCHED",
+  "output": "SETUP_LAUNCHED\n"
+}

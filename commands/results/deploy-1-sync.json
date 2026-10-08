@@ -1,0 +1,5 @@
+{
+  "id": "deploy-1-sync",
+  "cmd": "cp /opt/control-point/.env /tmp/cp-env-backup 2>/dev/null || true; rm -rf /tmp/cp-deploy && git clone --depth 1 https://github.com/Control-Point-FTC/control-point.git /tmp/cp-deploy && echo COMMIT=$(git -C /tmp/cp-deploy rev-parse HEAD) && tar -cf - --exclude=.git --exclude=node_modules -C /tmp/cp-deploy . | sudo tar -x -C /opt/control-point && [ -f /opt/control-point/.env ] || sudo cp /tmp/cp-env-backup /opt/control-point/.env; sudo chown -R controlpoint:controlpoint /opt/control-point && echo SYNC_OK",
+  "output": "COMMIT=f2765e71386605c7e5791a833ec9de8c9291c89d\nSYNC_OK\n\nSTDERR: Cloning into '/tmp/cp-deploy'...\n"
+}
