@@ -1,0 +1,5 @@
+{
+  "id": "d113-finalcopy-20261008-032029",
+  "cmd": "test \"$(sha256sum < /tmp/how-it-works.html)\" = \"9dab2954b10e628ff715a9ae9302a9cfe2c84c80042802e6ad38db33602abaae  -\" && sudo cp /tmp/how-it-works.html /opt/control-point/server/predict/how-it-works.html && sudo chown controlpoint:controlpoint /opt/control-point/server/predict/how-it-works.html && sudo chmod 644 /opt/control-point/server/predict/how-it-works.html && echo COPIED_OK",
+  "output": ""
+}

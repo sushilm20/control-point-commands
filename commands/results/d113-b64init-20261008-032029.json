@@ -1,0 +1,5 @@
+{
+  "id": "d113-b64init-20261008-032029",
+  "cmd": "rm -f /tmp/article.b64 && echo INIT_OK",
+  "output": "INIT_OK\n"
+}

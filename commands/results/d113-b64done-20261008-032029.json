@@ -1,0 +1,5 @@
+{
+  "id": "d113-b64done-20261008-032029",
+  "cmd": "base64 -d /tmp/article.b64 > /tmp/how-it-works.html && sha256sum /tmp/how-it-works.html && wc -c /tmp/how-it-works.html",
+  "output": "aefdbfd747f50b85a498cd9f7ae97ace0647e1250e7ce6adc3afea30f9675b2e  /tmp/how-it-works.html\n58250 /tmp/how-it-works.html\n"
+}
