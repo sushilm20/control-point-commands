@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands": [{"id": "deploy-113-pull-20261008-031227", "cmd": "sudo git -C /opt/control-point pull origin main 2>&1 | head -5"}, {"id": "deploy-113-restart-20261008-031227", "cmd": "sudo systemctl restart control-point && sleep 3 && sudo systemctl is-active control-point"}, {"id": "deploy-113-verify-20261008-031227", "cmd": "sudo git -C /opt/control-point rev-parse HEAD"}]}
