@@ -1,0 +1,5 @@
+{
+  "id": "deploy113-copy-20261008-031553",
+  "cmd": "sudo cp /opt/bruno-commands/repo/server/predict/how-it-works.html /opt/control-point/server/predict/how-it-works.html && sudo chown controlpoint:controlpoint /opt/control-point/server/predict/how-it-works.html && sudo chmod 644 /opt/control-point/server/predict/how-it-works.html && sudo cmp /opt/bruno-commands/repo/server/predict/how-it-works.html /opt/control-point/server/predict/how-it-works.html && echo COPIED_OK",
+  "output": "\nSTDERR: cp: cannot stat '/opt/bruno-commands/repo/server/predict/how-it-works.html': No such file or directory\n"
+}

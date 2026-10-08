@@ -1,0 +1,5 @@
+{
+  "id": "deploy113-restart2-20261008-031553",
+  "cmd": "sudo systemctl restart control-point && sleep 5 && sudo systemctl is-active control-point",
+  "output": "active\n"
+}
