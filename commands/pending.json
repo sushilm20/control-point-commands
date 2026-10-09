@@ -1,1 +1,1 @@
-{"commands": []}
+{"commands": [{"id": "deploy-3-verify", "timeout": 120, "cmd": "echo MARKER=$(ls /tmp/deploy-setup.done 2>/dev/null || echo NOT_DONE); grep -E 'SETUP_EXIT|error|Error' /tmp/deploy-setup.log 2>/dev/null | tail -5; echo ---; echo SERVICE=$(sudo systemctl is-active control-point); echo SITE=$(curl -s -o /dev/null -w '%{http_code}' https://tryctrlpoint.org); echo BUNDLE=$(grep -o 'index-[A-Za-z0-9_-]*\\.js' /opt/control-point/dist/index.html 2>/dev/null | head -1)"}]}
