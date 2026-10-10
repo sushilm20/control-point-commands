@@ -1,5 +1,5 @@
 {
   "id": "deploy-3-verify",
-  "cmd": "echo MARKER=$(ls /tmp/deploy-setup.done 2>/dev/null || echo NOT_DONE); grep -E 'SETUP_EXIT|error|Error' /tmp/deploy-setup.log 2>/dev/null | tail -5; echo ---; echo SERVICE=$(sudo systemctl is-active control-point); echo SITE=$(curl -s -o /dev/null -w '%{http_code}' https://tryctrlpoint.org); echo BUNDLE=$(grep -o 'index-[A-Za-z0-9_-]*\\.js' /opt/control-point/dist/index.html 2>/dev/null | head -1)",
-  "output": "MARKER=/tmp/deploy-setup.done\nSETUP_EXIT:0\n---\nSERVICE=active\nSITE=200\nBUNDLE=index-Uh3RC1De.js\n"
+  "cmd": "echo LOG_MTIME=$(stat -c %y /tmp/deploy-setup.log 2>/dev/null); grep -E 'SETUP_EXIT' /tmp/deploy-setup.log 2>/dev/null | tail -2; echo ---; echo SERVICE=$(sudo systemctl is-active control-point); echo SITE=$(curl -s -o /dev/null -w '%{http_code}' https://tryctrlpoint.org); echo BUNDLE=$(grep -o 'index-[A-Za-z0-9_-]*\\.js' /opt/control-point/dist/index.html 2>/dev/null | head -1)",
+  "output": "LOG_MTIME=2026-10-10 02:23:20.716896460 +0000\nSETUP_EXIT:0\n---\nSERVICE=active\nSITE=200\nBUNDLE=index-DCMcwoXv.js\n"
 }
