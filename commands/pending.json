@@ -9,6 +9,11 @@
       "id": "cs-deploy-6724f17-38864769307-1",
       "cmd": "sudo /opt/control-scout/bin/update 6724f17d5f24ed2efe577ed70e841b124bad4309",
       "timeout": 60
+    },
+    {
+      "id": "cs-deploy-e6711d0-38866949398-1",
+      "cmd": "sudo /opt/control-scout/bin/update e6711d084256fde88a6e61c7def76152e4d85767",
+      "timeout": 60
     }
   ]
 }
