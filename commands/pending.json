@@ -24,6 +24,11 @@
       "id": "cs-deploy-ab1e941-38876297910-1",
       "cmd": "sudo /opt/control-scout/bin/update ab1e941b69af4894a93c807ffc958cbbc3808e55",
       "timeout": 60
+    },
+    {
+      "id": "cs-deploy-bd6bc69-38883755071-1",
+      "cmd": "sudo /opt/control-scout/bin/update bd6bc69930b89e359940851e66cc8a098466b10d",
+      "timeout": 60
     }
   ]
 }
