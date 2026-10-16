@@ -1,0 +1,5 @@
+{
+  "id": "cs-verify-c15c80e-2",
+  "cmd": "sudo /opt/control-scout/bin/update c15c80e4aeea9007955b3807a3b416c390e5346b",
+  "output": "queued deploy of c15c80e4aeea9007955b3807a3b416c390e5346b (log: /var/log/control-scout-deploy.log)\n"
+}
