@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-db5ac02-40008316765-1",
+  "cmd": "sudo /opt/control-scout/bin/update db5ac0223cc1e5a767e0aeb81e163ad9fabe1d94",
+  "output": "queued deploy of db5ac0223cc1e5a767e0aeb81e163ad9fabe1d94 (log: /var/log/control-scout-deploy.log)\n"
+}
