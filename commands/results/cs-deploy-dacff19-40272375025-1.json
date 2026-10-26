@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-dacff19-40272375025-1",
+  "cmd": "sudo /opt/control-scout/bin/update dacff1919e051e5106d7148a99604d23c5dd2cc6",
+  "output": "queued deploy of dacff1919e051e5106d7148a99604d23c5dd2cc6 (log: /var/log/control-scout-deploy.log)\n"
+}
