@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-5d84d56-41256894197-1",
+  "cmd": "sudo /opt/control-scout/bin/update 5d84d56144bfa02dca4fc526c594cbde6fa51e3f",
+  "output": "queued deploy of 5d84d56144bfa02dca4fc526c594cbde6fa51e3f (log: /var/log/control-scout-deploy.log)\n"
+}
