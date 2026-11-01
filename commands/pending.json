@@ -1,1 +1,9 @@
-{"commands": []}
+{
+  "commands": [
+    {
+      "id": "cs-deploy-bedd31c-41311005479-1",
+      "cmd": "sudo /opt/control-scout/bin/update bedd31c015bb1986a04ea01c73bb88ca8e9367dc",
+      "timeout": 60
+    }
+  ]
+}
