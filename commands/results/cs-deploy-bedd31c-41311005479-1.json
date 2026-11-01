@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-bedd31c-41311005479-1",
+  "cmd": "sudo /opt/control-scout/bin/update bedd31c015bb1986a04ea01c73bb88ca8e9367dc",
+  "output": "queued deploy of bedd31c015bb1986a04ea01c73bb88ca8e9367dc (log: /var/log/control-scout-deploy.log)\n"
+}
