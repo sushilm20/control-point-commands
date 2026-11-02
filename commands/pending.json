@@ -1,1 +1,9 @@
-{"commands": []}
+{
+  "commands": [
+    {
+      "id": "cs-deploy-dab2245-41392817261-1",
+      "cmd": "sudo /opt/control-scout/bin/update dab2245e46fb8cae712f195bb065f132b19a0567",
+      "timeout": 60
+    }
+  ]
+}
