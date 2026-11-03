@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-0adb30f-41580318077-1",
+  "cmd": "sudo /opt/control-scout/bin/update 0adb30f89089fdb7717baa0a852ae1836a957484",
+  "output": "queued deploy of 0adb30f89089fdb7717baa0a852ae1836a957484 (log: /var/log/control-scout-deploy.log)\n"
+}
