@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-da9216d-41841799704-1",
+  "cmd": "sudo /opt/control-scout/bin/update da9216d3e0506e47b91ea09265b74271cba47ae0",
+  "output": "queued deploy of da9216d3e0506e47b91ea09265b74271cba47ae0 (log: /var/log/control-scout-deploy.log)\n"
+}
