@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-eff4915-41783129571-1",
+  "cmd": "sudo /opt/control-scout/bin/update eff491520f4dc16dc8e811237fc77f41764e246f",
+  "output": "queued deploy of eff491520f4dc16dc8e811237fc77f41764e246f (log: /var/log/control-scout-deploy.log)\n"
+}
