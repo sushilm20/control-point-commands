@@ -1,9 +1,1 @@
-{
-  "commands": [
-    {
-      "id": "cs-deploy-8561746-43641214360-1",
-      "cmd": "sudo /opt/control-scout/bin/update 8561746b6aefd4248153aee5251fa6eb69ad1c68",
-      "timeout": 60
-    }
-  ]
-}
+{"commands": []}
