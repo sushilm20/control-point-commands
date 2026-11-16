@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-f443c83-43929060016-1",
+  "cmd": "sudo /opt/control-scout/bin/update f443c837e917d7fa72d23d86c11fc8c3fbdad0ee",
+  "output": "queued deploy of f443c837e917d7fa72d23d86c11fc8c3fbdad0ee (log: /var/log/control-scout-deploy.log)\n"
+}
