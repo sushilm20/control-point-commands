@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-ebfa205-44070892528-1",
+  "cmd": "sudo /opt/control-scout/bin/update ebfa205d4e07aeea152444be216b14d1114f9b5d",
+  "output": "queued deploy of ebfa205d4e07aeea152444be216b14d1114f9b5d (log: /var/log/control-scout-deploy.log)\n"
+}
