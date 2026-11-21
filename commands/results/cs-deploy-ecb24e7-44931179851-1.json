@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-ecb24e7-44931179851-1",
+  "cmd": "sudo /opt/control-scout/bin/update ecb24e7623a4abe6cf13460432cb1aae495c11d6",
+  "output": "queued deploy of ecb24e7623a4abe6cf13460432cb1aae495c11d6 (log: /var/log/control-scout-deploy.log)\n"
+}
