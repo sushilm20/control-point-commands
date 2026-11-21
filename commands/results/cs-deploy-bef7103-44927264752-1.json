@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-bef7103-44927264752-1",
+  "cmd": "sudo /opt/control-scout/bin/update bef710390047ba42772e7af6314e1e50dbd2cba6",
+  "output": "queued deploy of bef710390047ba42772e7af6314e1e50dbd2cba6 (log: /var/log/control-scout-deploy.log)\n"
+}
