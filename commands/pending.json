@@ -1,1 +1,9 @@
-{"commands": []}
+{
+  "commands": [
+    {
+      "id": "cs-deploy-bca500a-44921240364-1",
+      "cmd": "sudo /opt/control-scout/bin/update bca500aa81294cb2a79c123c0ccacf31d7a4bec0",
+      "timeout": 60
+    }
+  ]
+}
