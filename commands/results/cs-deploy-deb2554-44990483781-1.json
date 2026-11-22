@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-deb2554-44990483781-1",
+  "cmd": "sudo /opt/control-scout/bin/update deb2554bedf05f233f1083823f26f394d9ae9aac",
+  "output": "queued deploy of deb2554bedf05f233f1083823f26f394d9ae9aac (log: /var/log/control-scout-deploy.log)\n"
+}
