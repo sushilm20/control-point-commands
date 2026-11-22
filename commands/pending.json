@@ -1,1 +1,9 @@
-{"commands": []}
+{
+  "commands": [
+    {
+      "id": "cs-deploy-ee16cad-45062407776-1",
+      "cmd": "sudo /opt/control-scout/bin/update ee16cad5e8842647cf4d02750a0ab4b031ec0cfc",
+      "timeout": 60
+    }
+  ]
+}
