@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-ecbc132-45287379622-1",
+  "cmd": "sudo /opt/control-scout/bin/update ecbc1320c6a0cd831c54d963d0d08359f399a20a",
+  "output": "queued deploy of ecbc1320c6a0cd831c54d963d0d08359f399a20a (log: /var/log/control-scout-deploy.log)\n"
+}
