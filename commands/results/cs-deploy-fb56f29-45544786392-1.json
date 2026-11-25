@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-fb56f29-45544786392-1",
+  "cmd": "sudo /opt/control-scout/bin/update fb56f2925da89ccc941b2e3af8ca8855d3497d70",
+  "output": "queued deploy of fb56f2925da89ccc941b2e3af8ca8855d3497d70 (log: /var/log/control-scout-deploy.log)\n"
+}
