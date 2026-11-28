@@ -1,0 +1,5 @@
+{
+  "id": "cs-deploy-baf239c-46093968782-1",
+  "cmd": "sudo /opt/control-scout/bin/update baf239c5975a6b0a8fa6947d1e9ce21f9a3ed96a",
+  "output": "queued deploy of baf239c5975a6b0a8fa6947d1e9ce21f9a3ed96a (log: /var/log/control-scout-deploy.log)\n"
+}
